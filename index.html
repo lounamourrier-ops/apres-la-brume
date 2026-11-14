@@ -1,0 +1,2110 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Après la Brume</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Lora:wght@400;600&display=swap">
+<style>
+/* Mise en page : un écran de création de personnage, puis l'écran de jeu (barre d'infos, grande zone de jeu, joystick tactile). Look sombre assumé. */
+:root {
+  --bg: #101612; --panel: #18211b; --fg: #e6ebdf; --muted: #97a595; --line: #2c3a2f;
+  --accent: #e0a33a; --accent-fg: #1a1204;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Lora", Georgia, serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 17px; line-height: 1.5;
+  padding-block: 18px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+#creator { width: 100%; max-width: 760px; align-self: center; }
+#game { width: min(100%, calc((100vh - 90px) * 1.3333)); width: min(100%, calc((100dvh - 90px) * 1.3333)); align-self: center; min-width: min(100%, 360px); }
+h1 { font-family: var(--display); font-weight: 700; font-size: 1.1rem; letter-spacing: .22em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h2 { font-family: var(--display); font-weight: 700; font-size: clamp(1.9rem, 7vw, 2.6rem); letter-spacing: .02em; text-transform: uppercase; color: var(--accent); margin: 0; line-height: 1.05; }
+p { margin: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+.top { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+#preview { width: 126px; height: 154px; image-rendering: pixelated; background: #0b100d; border: 1px solid var(--line); border-radius: 12px; flex: none; }
+.field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
+label, .lab { font-family: var(--display); font-size: 1rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+input[type=text] { font: inherit; font-size: 1.1rem; background: #0b100d; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; }
+.opt { display: flex; flex-direction: column; gap: 8px; }
+.sw { display: flex; flex-wrap: wrap; gap: 10px; }
+.sw button { width: 44px; height: 44px; border-radius: 10px; border: 3px solid transparent; cursor: pointer; padding: 0; }
+.sw button.txt { width: auto; padding: 0 16px; background: #0b100d; color: var(--fg); font: inherit; border: 2px solid var(--line); }
+.sw button[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--bg) inset; }
+.sw button.txt[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.go { font: inherit; font-weight: 600; font-size: 1.1rem; background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 10px; padding: 14px 20px; cursor: pointer; }
+.ghost { font: inherit; background: transparent; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.hud { position: absolute; top: 0; left: 0; right: 0; z-index: 3; display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: flex-start; justify-content: space-between; padding: 4px 8px 10px; font-family: var(--display); font-size: .78rem; letter-spacing: .05em; text-transform: uppercase; background: linear-gradient(rgba(0,0,0,.5), rgba(0,0,0,0)); pointer-events: none; }
+.hud .stats { display: flex; flex-wrap: wrap; gap: 0 10px; text-shadow: 0 1px 3px #000; }
+.hud .acts { display: flex; gap: 6px; margin-left: auto; }
+.hud button { pointer-events: auto; font-family: var(--display); font-size: .85rem; letter-spacing: .06em; text-transform: uppercase; color: var(--fg); background: rgba(24,33,27,.6); border: 1px solid var(--line); border-radius: 8px; padding: 2px 10px; min-height: 36px; font-size: 1.1rem; cursor: pointer; }
+#menu { position: absolute; top: 44px; right: 8px; z-index: 4; display: flex; flex-direction: column; gap: 6px; padding: 8px; background: rgba(8,12,10,.96); border: 1px solid var(--line); border-radius: 10px; }
+#menu button { text-align: left; min-height: 40px; }
+.hud b { color: var(--accent); font-weight: 700; }
+.stage { position: relative; touch-action: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #000; }
+#screen { display: block; width: 100%; aspect-ratio: 4 / 3; image-rendering: pixelated; }
+#stick { position: absolute; left: 12px; bottom: 12px; z-index: 2; width: 92px; height: 92px; border-radius: 50%; background: rgba(230,235,223,.08); border: 2px solid rgba(230,235,223,.25); touch-action: none; }
+#knob { position: absolute; left: 50%; top: 50%; width: 38px; height: 38px; margin: -19px 0 0 -19px; border-radius: 50%; background: rgba(224,163,58,.55); border: 2px solid rgba(224,163,58,.9); }
+#end { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 20px; background: rgba(8,12,10,.84); }
+#end p { max-width: 34ch; }
+#btns { position: absolute; right: 10px; bottom: 10px; z-index: 2; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+#btns > button { align-self: flex-end; }
+#btns .brow { display: flex; gap: 6px; justify-content: flex-end; }
+#btns button { font-family: var(--display); font-size: .88rem; letter-spacing: .06em; text-transform: uppercase; color: var(--fg); background: rgba(24,33,27,.62); border: 1px solid var(--line); border-radius: 10px; padding: 4px 10px; min-height: 40px; cursor: pointer; }
+#btns button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+#btns #bAct { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 700; }
+#bag, #mis { position: absolute; inset: 0; z-index: 5; background: rgba(8,12,10,.95); padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
+#bag h2, #mis h2 { font-size: 1.5rem; }
+.mission { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--panel); display: flex; flex-direction: column; gap: 4px; }
+.mission b { color: var(--accent); font-family: var(--display); letter-spacing: .06em; text-transform: uppercase; font-size: 1.05rem; }
+.mission.done b { color: var(--muted); }
+.mission .pg { font-size: .85rem; color: var(--muted); font-style: italic; margin-top: 4px; }
+.mission ul { margin: 4px 0 0; padding: 0; list-style: none; font-size: .92rem; color: var(--muted); }
+.mission li.ok { color: var(--fg); }
+#bag h2 span { color: var(--muted); font-size: 1.1rem; margin-left: 8px; }
+#slots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.slot { font-family: var(--display); font-size: .85rem; letter-spacing: .05em; text-transform: uppercase; min-height: 42px; padding: 4px; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-left-width: 5px; border-radius: 8px; cursor: pointer; }
+.slot.empty { color: var(--line); cursor: default; }
+.slot.sel { border-color: var(--accent); }
+#bagInfo { min-height: 4.6em; font-size: .95rem; line-height: 1.45; color: var(--fg); }
+#bagInfo b { color: var(--accent); font-family: var(--display); letter-spacing: .06em; text-transform: uppercase; font-size: 1.05rem; }
+.row2 { display: flex; gap: 8px; flex-wrap: wrap; }
+.row2 button { font-size: 1rem; padding: 10px 16px; }
+#talk { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 6; background: rgba(8,12,10,.96); border: 1px solid var(--accent); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+#talk .who { font-family: var(--display); font-size: 1.1rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+#talk p { font-size: 1rem; line-height: 1.45; }
+#talk button { align-self: flex-end; }
+#tuto { position: fixed; inset: 0; z-index: 50; background: rgba(8,12,10,.98); padding-block: 16px; padding-left: max(16px, calc((100vw - 760px) / 2)); padding-right: max(16px, calc((100vw - 760px) / 2)); display: flex; flex-direction: column; gap: 10px; overflow: auto; }
+#tutoCv { width: 100%; max-height: 52%; aspect-ratio: 16 / 9; object-fit: contain; image-rendering: pixelated; border: 1px solid var(--line); border-radius: 10px; background: #000; }
+#tuto .who { font-family: var(--display); font-size: 1.3rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+#tuto p { font-size: 1rem; line-height: 1.45; }
+#tutoDots { display: flex; gap: 6px; align-items: center; }
+#tutoDots i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); display: block; }
+#tutoDots i.on { background: var(--accent); }
+.rowb { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+#msg { position: absolute; top: 30px; left: 0; right: 0; text-align: center; font-family: var(--display); font-size: 1.2rem; letter-spacing: .08em; text-transform: uppercase; color: var(--fg); text-shadow: 0 2px 6px #000; pointer-events: none; }
+.note { color: var(--muted); font-family: var(--display); font-size: .9rem; letter-spacing: .08em; text-transform: uppercase; }
+@media (max-height: 520px) {
+  body { padding-block: 8px; }
+  h1, #game > .note { display: none; }
+  #game { width: min(100%, calc((100vh - 18px) * 1.3333)); width: min(100%, calc((100dvh - 18px) * 1.3333)); }
+  #msg { font-size: 1rem; }
+}
+</style>
+
+<main>
+  <h1>Après la Brume</h1>
+
+  <section class="panel" id="creator" aria-labelledby="t-create">
+    <h2 id="t-create">Crée ton personnage</h2>
+    <div class="top">
+      <canvas id="preview" width="18" height="22" aria-label="Aperçu du personnage. Touche pour le faire tourner."></canvas>
+      <div class="field">
+        <label for="name">Prénom</label>
+        <input id="name" type="text" maxlength="14" value="Léa" autocomplete="off">
+      </div>
+    </div>
+    <div class="opt"><span class="lab">Personnage</span><div class="sw" id="o-gender"></div></div>
+    <div class="opt"><span class="lab">Peau</span><div class="sw" id="o-skin"></div></div>
+    <div class="opt"><span class="lab">Coiffure</span><div class="sw" id="o-style"></div></div>
+    <div class="opt"><span class="lab">Couleur des cheveux</span><div class="sw" id="o-hair"></div></div>
+    <div class="opt"><span class="lab">Tenue</span><div class="sw" id="o-top"></div></div>
+    <div class="opt"><span class="lab">Couleur de la tenue</span><div class="sw" id="o-topc"></div></div>
+    <div class="opt"><span class="lab">Bas</span><div class="sw" id="o-bot"></div></div>
+    <div class="opt"><span class="lab">Couleur du bas</span><div class="sw" id="o-botc"></div></div>
+    <div class="opt"><span class="lab">Accessoire</span><div class="sw" id="o-acc"></div></div>
+    <div class="opt"><div class="sw"><button class="txt" id="rand" type="button">Au hasard</button></div></div>
+    <div class="opt"><span class="lab">Difficulté</span><div class="sw" id="o-diff"></div><p class="note" id="diffNote"></p></div>
+    <button class="go" id="cont" type="button" hidden>Continuer la partie sauvegardée</button>
+    <button class="go" id="start" type="button">Commencer l'aventure</button>
+    <button class="ghost" id="tutoShow" type="button">Voir le tutoriel (déplacement, boutons, armes, infectés)</button>
+  </section>
+
+  <section id="game" hidden>
+    <div class="stage" id="stage">
+      <canvas id="screen" width="320" height="240"></canvas>
+      <div class="hud">
+        <span class="stats">
+          <span id="hNameW" hidden><b id="hName"></b></span>
+          <span>Faim <b id="hHunger">100</b>%</span>
+          <span>Vies <b id="hLives">1</b></span>
+          <span>Endu. <b id="hStam">100</b>%</span>
+          <span><b id="hTime">Jour</b></span>
+          <span>Labo <b id="hDir">?</b> <b id="hDist"></b></span>
+          <span id="hAbriW" hidden>Abri <b id="hAbri"></b></span>
+        </span>
+        <span class="acts">
+          <button id="bMenu" type="button" aria-expanded="false" aria-label="Menu">☰</button>
+        </span>
+      </div>
+      <div id="menu" hidden>
+        <button class="ghost" id="bBag" type="button">Sac à dos</button>
+        <button class="ghost" id="bMis" type="button">Missions</button>
+        <button class="ghost" id="bHelp" type="button">Aide</button>
+        <button class="ghost" id="bSnd" type="button">Son : oui</button>
+        <button class="ghost" id="bSave" type="button">Sauvegarder</button>
+        <button class="ghost" id="back" type="button">Changer de personnage</button>
+      </div>
+      <div id="msg"></div>
+      <div id="stick"><div id="knob"></div></div>
+      <div id="btns">
+        <button id="bAct" type="button" hidden></button>
+        <button id="bHit" type="button" hidden>Frapper</button>
+        <div class="brow">
+          <button id="bMia" type="button" hidden>Leurre</button>
+          <button id="bTorch" type="button" hidden>Torche</button>
+          <button id="bTrap" type="button" hidden>Piège</button>
+        </div>
+        <div class="brow" id="bMove">
+          <button id="bRun" type="button" aria-pressed="false">Courir</button>
+          <button id="bCrouch" type="button" aria-pressed="false">Baisser</button>
+        </div>
+      </div>
+      <div id="mis" hidden>
+        <h2>Missions</h2>
+        <div id="misList" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div class="row2"><button class="ghost" id="misClose" type="button">Fermer</button></div>
+      </div>
+      <div id="bag" hidden>
+        <h2>Sac à dos<span id="bagCount"></span></h2>
+        <div id="slots"></div>
+        <div id="bagInfo"></div>
+        <div id="craft" class="row2"></div>
+        <div class="row2"><button class="go" id="bUse" type="button" hidden></button><button class="ghost" id="bDrop" type="button" hidden>Jeter</button><button class="ghost" id="bClose" type="button">Fermer</button></div>
+      </div>
+      <div id="talk" hidden><div class="who" id="talkWho"></div><p id="talkText"></p><button class="go" id="talkNext" type="button">Suite</button></div>
+      <div id="tuto" hidden>
+        <canvas id="tutoCv" width="320" height="180"></canvas>
+        <div class="who" id="tutoT"></div>
+        <p id="tutoD"></p>
+        <div class="rowb"><button class="ghost" id="tutoPrev" type="button">Précédent</button><span id="tutoDots"></span><button class="go" id="tutoNext" type="button">Suivant</button></div>
+        <div class="rowb"><button class="ghost" id="tutoSkip" type="button">Passer le tutoriel</button></div>
+      </div>
+      <div id="end" hidden><h2 id="endT"></h2><p id="endP"></p><button class="go" id="again" type="button">Réessayer</button><button class="ghost" id="loadSave" type="button" hidden>Reprendre la sauvegarde</button></div>
+    </div>
+    <p class="note" style="margin-top:10px">Objectif : trouve le remède au laboratoire, sans te faire mordre · clavier : flèches, E (action), C (se baisser), B (sac)</p>
+  </section>
+</main>
+
+<script>
+/* ---------- Réglages et petits outils ---------- */
+const TS = 16, MW = 112, MH = 72, VW = 320, VH = 240;
+const $ = id => document.getElementById(id);
+function hh(x, y, k) { // nombre "au hasard" mais toujours le même pour une case donnée
+  let n = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(k + 1, 1274126177);
+  n = Math.imul(n ^ (n >>> 13), 1274126177);
+  return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+}
+
+/* ---------- Le personnage (dessiné pixel par pixel) ---------- */
+const OPTIONS = {
+  gender: ["Fille", "Garçon"],
+  skin:  ["#f3d3bb", "#e5b996", "#cd9a74", "#a8714a", "#80512f", "#573522"],
+  hair:  ["#1c1612", "#3b261a", "#6a4426", "#b58a4a", "#8a3a22", "#8a8d92"],
+  style: ["Courts", "Longs", "Queue", "Carré", "Épis", "Chignon"],
+  top:   ["T-shirt", "Sweat", "Veste", "Chemise", "Blouson", "Manteau"],
+  topc:  ["#5f6f52", "#4f6477", "#7a4a42", "#a08a5a", "#44464c"],
+  bot:   ["Jean", "Cargo", "Jogging"],
+  botc:  ["#2e3a52", "#2b2b2e", "#5a4c3a", "#46523f", "#6a6e76"],
+  acc:   ["Aucun", "Lunettes", "Casquette", "Bonnet", "Écharpe"]
+};
+let ch = { name: "Léa", gender: 0, skin: 1, hair: 1, style: 1, top: 1, topc: 1, bot: 0, botc: 0, acc: 0 };
+try { const sv = JSON.parse(localStorage.getItem("brume-perso")); if (sv && typeof sv.skin === "number") ch = Object.assign(ch, sv); } catch (e) {}
+const DIFFS = [
+  { name: "Facile", det: 0.6, spd: 0.8, hunger: 0.5, stam: 0.6, mobs: 0.5, hpMul: 0.7, lives: 3, kits: 2, hordeBase: 2, second: false, desc: "Moins d'infectés, plus lents, qui te repèrent de moins loin. 3 vies, faim lente, petites meutes." },
+  { name: "Modéré", det: 0.8, spd: 0.9, hunger: 0.75, stam: 0.8, mobs: 0.75, hpMul: 1, lives: 2, kits: 1, hordeBase: 3, second: true, desc: "Équilibré : un peu moins d'infectés, 2 vies, meutes moyennes." },
+  { name: "Difficile", det: 1, spd: 1, hunger: 1, stam: 1, mobs: 1, hpMul: 1, lives: 1, kits: 1, hordeBase: 4, second: true, desc: "Pour les courageux : beaucoup d'infectés, une seule vie (une morsure et c'est fini), grosses meutes." }
+];
+let diff = 1;
+try { const dv = parseInt(localStorage.getItem("brume-diff"), 10); if (dv >= 0 && dv <= 2) diff = dv; } catch (e) {}
+["gender", "skin", "hair", "style", "top", "topc", "bot", "botc", "acc"].forEach(k => { const L = OPTIONS[k].length; ch[k] = (((ch[k] | 0) % L) + L) % L; });
+
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  const t = f < 0 ? 0 : 255, p = Math.abs(f);
+  r = Math.round((t - r) * p + r); g = Math.round((t - g) * p + g); b = Math.round((t - b) * p + b);
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+function mk(w, h) { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; }
+// Contour sombre de 1 pixel autour d'un dessin : donne un rendu net et lisible
+function outlineCanvas(src, color) {
+  const w = src.width, h = src.height, out = mk(w + 2, h + 2), o = out.getContext("2d");
+  const sil = mk(w, h), s = sil.getContext("2d");
+  s.drawImage(src, 0, 0); s.globalCompositeOperation = "source-in"; s.fillStyle = color; s.fillRect(0, 0, w, h);
+  [[0, 1], [2, 1], [1, 0], [1, 2]].forEach(([dx, dy]) => o.drawImage(sil, dx, dy));
+  o.drawImage(src, 1, 1);
+  return out;
+}
+
+/* Le personnage : sprite 16 x 20, mis en cache avec un contour sombre */
+function paintCharRaw(g, c, dir, fi) {
+  const R = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y + 4, w, h); };
+  const S = c.skinC || OPTIONS.skin[c.skin], H = c.hairC || OPTIONS.hair[c.hair];
+  const Tc = c.topCC || OPTIONS.topc[c.topc], Bc = c.botCC || OPTIONS.botc[c.botc];
+  const Sd = shade(S, -.17), Sl = shade(S, .08), Hh = shade(H, .32), Hd = shade(H, -.35);
+  const boy = c.gender === 1, top = c.top | 0, bot = c.bot | 0, st = c.style | 0, acc = c.acc | 0;
+  const front = dir === "down", up = dir === "up", side = !front && !up;
+  const Tm = top === 4 ? shade(Tc, -.28) : Tc, Tmd = shade(Tm, -.25), Tml = shade(Tm, .18);
+  const Bd = shade(Bc, -.3), Bl = shade(Bc, .2);
+  const O = "#14100d", EW = "#dcd8ce", SHOE = "#1d1a18";
+  const x0 = side ? 5 : (c.big ? 2 : boy ? 3 : 4), w = side ? 6 : (c.big ? 12 : boy ? 10 : 8), cx = x0 + (w >> 1);
+  // jambes
+  const lh = fi === 1 ? 2 : 3, rh = fi === 2 ? 2 : 3;
+  R(Bc, 5, 11, 3, lh); R(Bd, 7, 11, 1, lh); R(SHOE, 5, 11 + lh, 3, 1);
+  R(Bc, 8, 11, 3, rh); R(Bd, 10, 11, 1, rh); R(SHOE, 8, 11 + rh, 3, 1);
+  if (bot === 0) { R(Bl, 5, 11, 1, lh); R(Bl, 10, 11, 1, rh); }
+  if (bot === 1) { R(Bd, 5, 12, 2, 2); R(Bl, 5, 12, 2, 1); R(Bd, 9, 12, 2, 2); R(Bl, 9, 12, 2, 1); }
+  if (bot === 2) { R("#c9c9bf", 5, 11, 1, lh); R("#c9c9bf", 10, 11, 1, rh); R(Bd, 5, 10 + lh, 3, 1); R(Bd, 8, 10 + rh, 3, 1); }
+  // cou
+  R(Sd, 7, 5, 2, 1);
+  // buste
+  const hem = top === 5 ? 12 : 10, longSl = !(top === 0 || top === 3);
+  R(Tm, x0, 6, w, hem - 5); R(Tmd, x0 + w - 1, 6, 1, hem - 5); R(Tml, x0, 6, w, 1);
+  if (!side) {
+    const la = fi === 2 ? 1 : 0, ra = fi === 1 ? 1 : 0;
+    R(Tm, x0 - 1, 6 + la, 1, longSl ? 5 : 2); R(Tmd, x0 + w, 6 + ra, 1, longSl ? 5 : 2);
+    if (!longSl) { R(S, x0 - 1, 8 + la, 1, 3); R(Sd, x0 + w, 8 + ra, 1, 3); }
+    else { R(S, x0 - 1, 10 + la, 1, 1); R(Sd, x0 + w, 10 + ra, 1, 1); if (top === 1) { R(Tmd, x0 - 1, 9 + la, 1, 1); R(Tmd, x0 + w, 9 + ra, 1, 1); } }
+  }
+  if (front) {
+    if (top === 0) R(shade(Tm, -.12), x0 + 2, 6, w - 4, 1);
+    if (top === 1) { R(Tmd, x0 + 1, 5, 2, 1); R(Tmd, x0 + w - 3, 5, 2, 1); R(Tmd, x0 + 2, 9, w - 4, 1); R(Tml, cx - 1, 7, 1, 2); R(Tml, cx, 7, 1, 2); }
+    if (top === 2) { R("#cfcdc0", cx - 1, 6, 2, 5); R("#a9a79a", cx, 6, 1, 5); R(Tmd, x0 + 1, 6, w - 2, 1); R(Tmd, x0 + 1, 9, 2, 1); R(Tmd, x0 + w - 3, 9, 2, 1); }
+    if (top === 3) { R(Tmd, x0 + 2, 6, 1, 5); R(Tmd, x0 + 5, 6, 1, 5); if (boy) R(Tmd, x0 + 8, 6, 1, 5); R(Tmd, x0, 8, w, 1); R(S, cx - 1, 6, 2, 1); }
+    if (top === 4) { R(Tml, x0 + 1, 6, 2, 2); R(Tml, x0 + w - 3, 6, 2, 2); R("#a8a89c", cx, 6, 1, 5); R(Tm, x0 + 1, 5, w - 2, 1); R(Tmd, x0 + 1, 9, 2, 1); R(Tmd, x0 + w - 3, 9, 2, 1); R(Tmd, x0, 10, w, 1); }
+    if (top === 5) { R(Tml, cx - 2, 7, 1, 1); R(Tml, cx + 1, 7, 1, 1); R(Tml, cx - 2, 10, 1, 1); R(Tml, cx + 1, 10, 1, 1); R(Tmd, x0, 9, w, 1); R(Tmd, x0 + 1, 6, 2, 2); R(Tmd, x0 + w - 3, 6, 2, 2); R(Tmd, x0, 12, w, 1); }
+    if (top === 0 || top === 2 || top === 3) { R("#2a2018", x0, 10, w, 1); R("#a0a090", cx - 1, 10, 2, 1); }
+    // sac : bretelles
+    R("#33271c", x0 + 1, 6, 1, 4); R("#33271c", x0 + w - 2, 6, 1, 4);
+  } else if (up) {
+    if (top === 1) { R(Tmd, x0 + 1, 5, w - 2, 2); }
+    if (top === 4) R(Tm, x0 + 1, 5, w - 2, 1);
+    if (top === 5) R(Tmd, x0 + 1, 5, w - 2, 1);
+    R("#4a3a2a", x0 + 1, 6, w - 2, 5); R("#33271c", x0 + 1, 6, w - 2, 1); R("#5c4a36", x0 + 2, 7, w - 4, 3); R("#a0a090", cx - 1, 8, 2, 1);
+  } else {
+    R("#4a3a2a", 9, 7, 3, 4); R("#33271c", 9, 7, 3, 1); R("#5c4a36", 10, 8, 1, 2);
+    R(Tm, 6, 6, 3, longSl ? 5 : 2); R(Tml, 6, 6, 1, longSl ? 5 : 2);
+    if (longSl) { R(S, 6, 10, 3, 1); if (top === 1) R(Tmd, 6, 9, 3, 1); } else R(S, 6, 8, 3, 3);
+    if (top === 4) R(Tmd, 5, 10, 6, 1);
+  }
+  // visage
+  R(S, 4, -1, 8, 6); R(Sl, 5, 2, 2, 1); R(Sd, 4, 4, 1, 1); R(Sd, 11, 4, 1, 1);
+  if (!side) { R(S, 3, 1, 1, 2); R(Sd, 3, 2, 1, 1); R(S, 12, 1, 1, 2); R(Sd, 12, 2, 1, 1); }
+  else { R(S, 9, 1, 2, 2); R(Sd, 10, 1, 1, 2); }
+  if (front) {
+    R(EW, 5, 1, 2, 2); R(O, 6, 1, 1, 2); R(EW, 9, 1, 2, 2); R(O, 9, 1, 1, 2);
+    R(Hd, 5, 0, 2, 1); R(Hd, 9, 0, 2, 1); R(Sd, 8, 3, 1, 1); R(boy ? "#9a554e" : "#b8605e", 7, 4, 2, 1);
+    if (!boy) { R("rgba(210,110,110,.32)", 5, 3, 2, 1); R("rgba(210,110,110,.32)", 10, 3, 1, 1); }
+  } else if (side) {
+    R(EW, 5, 1, 2, 2); R(O, 5, 1, 1, 2); R(Hd, 5, 0, 3, 1); R(S, 3, 2, 1, 1); R(Sd, 3, 3, 1, 1); R(boy ? "#9a554e" : "#b8605e", 5, 4, 1, 1);
+  }
+  // cheveux
+  if (up) {
+    R(H, 3, -3, 10, 9); R(Hh, 5, -3, 3, 1); R(Hd, 8, -3, 1, 5);
+    if (st === 1) R(H, 3, 6, 10, 4); if (st === 3) R(H, 3, 6, 10, 1);
+    if (st === 2) { R(H, 7, 5, 2, 5); R("#8a3a3a", 7, 5, 2, 1); }
+    if (st === 4) { R(H, 4, -4, 2, 1); R(H, 7, -4, 2, 1); R(H, 10, -4, 2, 1); }
+    if (st === 5) { R(H, 6, -4, 4, 2); R(Hh, 7, -4, 1, 1); }
+  } else if (front) {
+    R(H, 4, -3, 8, 3); R(Hh, 5, -3, 3, 1); R(Hh, 9, -2, 2, 1); R(Hd, 8, -3, 1, 2); R(H, 3, -2, 1, 4); R(H, 12, -2, 1, 4);
+    if (st === 0) { R(H, 4, 0, 2, 1); R(H, 10, 0, 2, 1); }
+    if (st === 1) { R(H, 3, -2, 2, 9); R(H, 11, -2, 2, 9); R(Hd, 3, 6, 1, 3); R(Hd, 12, 6, 1, 3); R(H, 4, 0, 5, 1); }
+    if (st === 2) { R(H, 4, 0, 3, 1); R(H, 12, -1, 2, 4); R("#8a3a3a", 12, 0, 2, 1); }
+    if (st === 3) { R(H, 3, -2, 2, 7); R(H, 11, -2, 2, 7); R(H, 4, 0, 8, 1); R(Hd, 3, 4, 2, 1); R(Hd, 11, 4, 2, 1); }
+    if (st === 4) { R(H, 4, -4, 2, 1); R(H, 7, -4, 2, 1); R(H, 10, -4, 2, 1); R(H, 4, 0, 2, 1); }
+    if (st === 5) { R(H, 6, -4, 4, 2); R(Hh, 7, -4, 1, 1); R(H, 4, 0, 3, 1); }
+  } else {
+    R(H, 4, -3, 8, 3); R(Hh, 5, -3, 3, 1); R(H, 8, -2, 4, 7); R(H, 4, 0, 4, 1); R(Hd, 11, 2, 1, 3);
+    if (st === 1) { R(H, 8, 5, 4, 5); R(Hd, 11, 6, 1, 3); }
+    if (st === 3) R(H, 8, 5, 4, 2);
+    if (st === 2) { R(H, 11, 0, 3, 5); R("#8a3a3a", 11, 1, 3, 1); }
+    if (st === 4) { R(H, 4, -4, 2, 1); R(H, 7, -4, 2, 1); R(H, 10, -4, 2, 1); }
+    if (st === 5) { R(H, 8, -4, 4, 2); R(Hh, 9, -4, 1, 1); }
+  }
+  // accessoires
+  if (acc === 1 && !up) {
+    const F = "#1d1d22", lens = "rgba(170,205,230,.22)", gl = "rgba(235,245,255,.6)";
+    const ring = lx => { R(F, lx + 1, 0, 2, 1); R(F, lx, 1, 1, 2); R(F, lx + 3, 1, 1, 2); R(F, lx + 1, 3, 2, 1); R(lens, lx + 1, 1, 2, 2); R(gl, lx + 1, 1, 1, 1); };
+    if (front) { ring(4); ring(8); R(F, 3, 1, 1, 1); R(F, 12, 1, 1, 1); }
+    else { ring(4); R(F, 8, 1, 2, 1); }
+  }
+  if (acc === 2) { const cp = shade(Tc, -.2), br = shade(cp, -.35); if (up) { R(cp, 3, -3, 10, 6); R(shade(cp, .3), 7, -4, 2, 1); } else { R(cp, 3, -3, 10, 3); R(shade(cp, .2), 5, -3, 3, 1); if (front) R(br, 3, 0, 10, 1); else R(br, 0, 0, 7, 1); } }
+  if (acc === 3) { const bn = shade(Tc, -.05); R(bn, 3, -4, 10, up ? 7 : 4); R(shade(bn, .2), 5, -4, 3, 1); if (!up) R(shade(bn, -.25), 3, 0, 10, 1); }
+  if (acc === 4) { const sc = "#8a7a5a"; R(sc, 4, 5, 8, 2); R(shade(sc, -.25), 4, 6, 8, 1); if (front) { R(sc, 5, 7, 2, 3); R(shade(sc, -.25), 5, 9, 2, 1); } }
+  // infectés
+  if (c.mob) {
+    const ec = c.mob === 3 ? "#ffa030" : "#d83030";
+    if (front && c.mob === 3) { R(ec, 6, 1, 1, 2); R(ec, 9, 1, 1, 2); R("#14100d", 6, 3, 4, 3); R("#7a1515", 7, 5, 2, 1); R("rgba(60,100,70,.7)", 5, 3, 1, 1); }
+    else if (front) { R(ec, 6, 1, 1, 2); R(ec, 9, 1, 1, 2); R("#4a0d0d", 7, 4, 2, 1); R("#7a1515", 7, 5, 1, 1); R("rgba(60,100,70,.7)", 5, 3, 1, 1); R("rgba(60,100,70,.7)", 10, 0, 1, 2); }
+    else if (side) { R("#d83030", 5, 1, 1, 2); R("#4a0d0d", 5, 4, 1, 1); R("rgba(60,100,70,.7)", 7, 3, 1, 1); }
+    if (!up) { R("#5a1212", x0 + 1, 7, 3, 3); R("#7a1818", x0 + 2, 8, 1, 1); R("rgba(0,0,0,.4)", x0, 10, w, 1); R(S, x0 + w - 3, 8, 2, 2); }
+    else R("#5a1212", x0 + 2, 7, 3, 2);
+    if (c.mob === 2) { R("rgba(0,0,0,.3)", 5, 3, 2, 1); R("rgba(0,0,0,.3)", 9, 3, 2, 1); }
+  }
+}
+const spriteCache = {};
+function sprite(c, dir, fi) {
+  const key = [c.big || 0, c.gender, c.skin, c.hair, c.style, c.top, c.topc, c.bot, c.botc, c.acc, c.skinC || "", c.hairC || "", c.topCC || "", c.botCC || "", c.mob || 0, dir, fi].join("|");
+  if (spriteCache[key]) return spriteCache[key];
+  const raw = mk(16, 20);
+  if (dir === "right") {
+    const l = mk(16, 20); paintCharRaw(l.getContext("2d"), c, "left", fi);
+    const rc = raw.getContext("2d"); rc.translate(16, 0); rc.scale(-1, 1); rc.drawImage(l, 0, 0);
+  } else paintCharRaw(raw.getContext("2d"), c, dir, fi);
+  return (spriteCache[key] = outlineCanvas(raw, c.mob ? "#0d0707" : "#120e0b"));
+}
+function drawChar(ctx, c, dir, fi, ox, oy) {
+  ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect(ox + 3, oy + 15, 10, 1);
+  ctx.drawImage(sprite(c, dir, fi), ox - 1, oy - 5);
+}
+
+// Petite fille : la compagne qu'on rencontre dans un bâtiment
+function paintKidRaw(g, dir, fi) {
+  const R = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y + 4, w, h); };
+  const S = "#f0d0b4", H = "#5a3a22", D = "#a8556e", Dd = "#7e3f54", L = "#3a4258", B = "#2a2420", RB = "#c0607a";
+  const lh = fi === 1 ? 1 : 2, rh = fi === 2 ? 1 : 2;
+  R(L, 6, 12, 2, lh); R(B, 6, 12 + lh, 2, 1); R(L, 8, 12, 2, rh); R(B, 8, 12 + rh, 2, 1);
+  R(D, 5, 8, 6, 2); R(D, 4, 10, 8, 2); R(Dd, 4, 11, 8, 1); R(Dd, 10, 8, 1, 2);
+  if (dir !== "left") { R(D, 4, 8, 1, 2); R(S, 4, 10, 1, 1); R(D, 11, 8, 1, 2); R(S, 11, 10, 1, 1); } else { R(D, 6, 8, 3, 2); R(S, 7, 10, 2, 1); }
+  R(S, 5, 3, 6, 5); R(shade(S, -.14), 5, 7, 1, 1); R(shade(S, -.14), 10, 7, 1, 1);
+  if (dir === "up") { R(H, 4, 1, 8, 7); R(RB, 6, 1, 4, 1); R(H, 7, 8, 2, 3); }
+  else {
+    R(H, 4, 1, 8, 3); R(shade(H, .3), 5, 1, 3, 1); R(H, 4, 3, 1, 3); R(H, 11, 3, 1, 3); R(RB, 6, 1, 4, 1);
+    if (dir === "down") { R("#dcd8ce", 6, 5, 1, 2); R("#14100d", 6, 5, 1, 2); R("#14100d", 9, 5, 1, 2); R("rgba(210,110,110,.4)", 5, 7, 1, 1); R("rgba(210,110,110,.4)", 10, 7, 1, 1); R(H, 11, 3, 2, 5); R(RB, 11, 3, 2, 1); }
+    else { R("#14100d", 5, 5, 1, 2); R(H, 9, 3, 3, 5); R(RB, 10, 3, 2, 1); }
+  }
+}
+function drawKid(ctx, dir, fi, ox, oy) {
+  const key = "kid|" + dir + "|" + fi;
+  if (!spriteCache[key]) {
+    const raw = mk(16, 20);
+    if (dir === "right") { const l = mk(16, 20); paintKidRaw(l.getContext("2d"), "left", fi); const rc = raw.getContext("2d"); rc.translate(16, 0); rc.scale(-1, 1); rc.drawImage(l, 0, 0); }
+    else paintKidRaw(raw.getContext("2d"), dir, fi);
+    spriteCache[key] = outlineCanvas(raw, "#120e0b");
+  }
+  ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect(Math.round(ox) + 3, Math.round(oy) + 15, 10, 1);
+  ctx.drawImage(spriteCache[key], Math.round(ox) - 1, Math.round(oy) - 5);
+}
+
+/* ---------- Écran de création ---------- */
+const pv = $("preview").getContext("2d");
+let pvDir = "down";
+function drawPreview() { pv.clearRect(0, 0, 18, 22); drawChar(pv, ch, pvDir, 0, 1, 5); }
+$("preview").onclick = () => { pvDir = { down: "left", left: "up", up: "right", right: "down" }[pvDir]; drawPreview(); };
+function textButtons(id, key, labels) {
+  const box = $(id); box.innerHTML = "";
+  labels.forEach((name, i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "txt"; b.textContent = name; b.setAttribute("aria-pressed", ch[key] === i);
+    b.onclick = () => {
+      ch[key] = i;
+      if (key === "gender") { const cur = $("name").value.trim(); if (cur === "" || cur === "Léa" || cur === "Noé") $("name").value = i === 1 ? "Noé" : "Léa"; ch.name = $("name").value; }
+      textButtons(id, key, labels); drawPreview();
+    };
+    box.appendChild(b);
+  });
+}
+function swatches(id, key, colors) {
+  const box = $(id); box.innerHTML = "";
+  colors.forEach((col, i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.style.background = col; b.setAttribute("aria-label", key + " " + (i + 1));
+    b.setAttribute("aria-pressed", ch[key] === i);
+    b.onclick = () => { ch[key] = i; swatches(id, key, colors); drawPreview(); };
+    box.appendChild(b);
+  });
+}
+function diffButtons() {
+  const box = $("o-diff"); box.innerHTML = "";
+  DIFFS.forEach((d, i) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "txt"; b.textContent = d.name; b.setAttribute("aria-pressed", diff === i);
+    b.onclick = () => { diff = i; try { localStorage.setItem("brume-diff", String(i)); } catch (e) {} diffButtons(); };
+    box.appendChild(b);
+  });
+  $("diffNote").textContent = DIFFS[diff].desc;
+}
+function buildCreator() {
+  diffButtons();
+  $("cont").hidden = !hasSave(); $("name").value = ch.name;
+  textButtons("o-gender", "gender", OPTIONS.gender); textButtons("o-style", "style", OPTIONS.style); textButtons("o-acc", "acc", OPTIONS.acc);
+  swatches("o-skin", "skin", OPTIONS.skin); swatches("o-hair", "hair", OPTIONS.hair);
+  textButtons("o-top", "top", OPTIONS.top); swatches("o-topc", "topc", OPTIONS.topc); textButtons("o-bot", "bot", OPTIONS.bot); swatches("o-botc", "botc", OPTIONS.botc);
+  drawPreview();
+}
+$("rand").onclick = () => {
+  const rnd = n => Math.floor(Math.random() * n);
+  ch.skin = rnd(OPTIONS.skin.length); ch.hair = rnd(OPTIONS.hair.length); ch.top = rnd(OPTIONS.top.length); ch.topc = rnd(OPTIONS.topc.length); ch.bot = rnd(OPTIONS.bot.length); ch.botc = rnd(OPTIONS.botc.length); ch.style = rnd(OPTIONS.style.length); ch.acc = rnd(OPTIONS.acc.length);
+  buildCreator();
+};
+
+/* ---------- Le monde : grande ville abandonnée, forêt, et le laboratoire tout au bout ---------- */
+const ROAD = 0, GRASS = 1, WALK = 2, BUILD = 3, TREE = 4, CAR = 5, BARRIER = 6, DEBRIS = 7, LAB = 8, LABDOOR = 9, WALL = 10, GATE = 11;
+const CITY_END = 59;
+const LX = 103, LY = 58, LDX = 105, LDY = 62; // laboratoire : coin haut gauche et porte
+const map = [];
+const byOf = y => ((y - 3) % 9 + 9) % 9;
+function blockInfo(x, y) { return [Math.floor((x - 3) / 10), Math.floor((y - 3) / 9)]; }
+const blocker = (x, y) => hh(x, y, 2) < 0.07;
+for (let y = 0; y < MH; y++) {
+  const row = [];
+  for (let x = 0; x < MW; x++) {
+    let t = GRASS;
+    const bx = ((x - 3) % 10 + 10) % 10, by = byOf(y);
+    const hRoad = by >= 7, near = x < 11 && y < 5;
+    if (x === 0 || y === 0 || x === MW - 1 || y === MH - 1) t = TREE;
+    else if (x > CITY_END) {
+      if (hRoad) t = WALK;
+      else t = hh(x, y, 1) < (x < 64 ? 0.18 : 0.3) ? TREE : GRASS;
+    } else if (hRoad || bx >= 8) {
+      t = ROAD;
+      if (!(hRoad && bx >= 8) && !near) {
+        let ok = blocker(x, y);
+        if (ok && hRoad && by === 8 && blocker(x, y - 1)) ok = false;
+        if (ok && !hRoad && bx === 9 && blocker(x - 1, y)) ok = false;
+        if (ok) t = hh(x, y, 9) < 0.3 ? BARRIER : CAR;
+      }
+    } else {
+      const [ix, iy] = blockInfo(x, y), roll = hh(ix, iy, 3);
+      const inner = bx >= 1 && bx <= 6 && by >= 1 && by <= 5;
+      if (roll < 0.25) t = inner ? (hh(x, y, 4) < 0.2 ? TREE : (hh(x, y, 12) < 0.06 ? DEBRIS : GRASS)) : WALK;
+      else t = inner ? BUILD : WALK;
+      if (t === WALK && !near && hh(x, y, 11) < 0.05) t = DEBRIS;
+    }
+    row.push(t);
+  }
+  map.push(row);
+}
+// Grand mur de quarantaine entre la ville et la forêt : portails verrouillés, ou escalade avec une corde
+const WALL_X = 60, gatePos = [];
+for (let y = 1; y < MH - 1; y++) { const gate = byOf(y) >= 7; map[y][WALL_X] = gate ? GATE : WALL; if (gate) gatePos.push([WALL_X, y]); }
+const doors = new Map();
+const addDoor = (x, y, kind) => doors.set(y * MW + x, { x, y, kind, locked: false, pharmacy: false });
+// Cabanes dans la forêt (des cachettes sur le chemin)
+for (let k = 0; k < 16; k++) {
+  const x0 = 64 + Math.floor(hh(k, 1, 500) * 30), y0 = 4 + Math.floor(hh(1, k, 501) * 58);
+  let ok = !(x0 >= 94 && y0 >= 52);
+  for (let yy = y0 - 1; yy <= y0 + 3 && ok; yy++) { if (byOf(yy) >= 7) ok = false; for (let xx = x0 - 1; xx <= x0 + 4; xx++) if (map[yy][xx] === BUILD) ok = false; }
+  if (!ok) continue;
+  for (let yy = y0 - 1; yy <= y0 + 3; yy++) for (let xx = x0 - 1; xx <= x0 + 4; xx++) map[yy][xx] = GRASS;
+  for (let yy = y0; yy <= y0 + 2; yy++) for (let xx = x0; xx <= x0 + 3; xx++) map[yy][xx] = BUILD;
+  addDoor(x0 + 1, y0 + 2, "cabane");
+}
+// Le laboratoire (zone dégagée autour)
+for (let y = 57; y <= 68; y++) for (let x = 98; x <= 110; x++) map[y][x] = byOf(y) >= 7 ? WALK : GRASS;
+for (let y = LY; y <= LDY; y++) for (let x = LX; x <= LX + 5; x++) map[y][x] = LAB;
+map[LDY][LDX] = LABDOOR; map[LDY][LDX + 1] = LABDOOR;
+// Portes des immeubles de la ville
+for (let y = 0; y < MH - 1; y++) for (let x = 1; x <= CITY_END; x++) {
+  if (map[y][x] === BUILD && map[y + 1][x] !== BUILD && ((x - 3) % 10 + 10) % 10 === 3) {
+    addDoor(x, y, "ville"); if (hh(x, y, 600) < 0.22) doors.get(y * MW + x).locked = true;
+  }
+}
+let pharm = null;
+for (const d of doors.values()) { if (d.kind !== "ville") continue; const [ix, iy] = blockInfo(d.x, d.y); if (ix >= 1 && ix <= 2 && iy >= 0 && iy <= 2) { pharm = d; break; } }
+if (!pharm) pharm = [...doors.values()].find(d => d.kind === "ville");
+pharm.pharmacy = true; pharm.locked = false;
+let miaDoor = null;
+for (const d of doors.values()) { if (d.kind !== "ville" || d.pharmacy || d.locked) continue; const [ix, iy] = blockInfo(d.x, d.y); if (ix >= 2 && ix <= 4 && iy >= 1 && iy <= 4) { miaDoor = d; break; } }
+if (!miaDoor) miaDoor = [...doors.values()].find(d => d.kind === "ville" && !d.pharmacy && !d.locked);
+miaDoor.mia = true;
+let bearShown = false, bearDoor = null, bestD = 1e9;
+for (const d of doors.values()) { if (d.kind !== "ville" || d.pharmacy || d.mia) continue; const dd = Math.hypot(d.x - miaDoor.x, d.y - miaDoor.y); if (dd < 8 || dd > 34) continue; const sc = dd + (d.locked ? 0 : 12); if (sc < bestD) { bestD = sc; bearDoor = d; } }
+if (!bearDoor) bearDoor = [...doors.values()].find(d => d.kind === "ville" && !d.pharmacy && !d.mia);
+bearDoor.bear = true;
+let svShown = false, svDoor = null, svBest = 1e9;
+for (const d of doors.values()) { if (d.kind !== "ville" || d.pharmacy || d.mia || d.bear) continue; const dd = Math.hypot(d.x - miaDoor.x, d.y - miaDoor.y); if (dd < 12 || dd > 42) continue; const sc = dd + (d.locked ? 0 : 10); if (sc < svBest) { svBest = sc; svDoor = d; } }
+if (!svDoor) svDoor = [...doors.values()].find(d => d.kind === "ville" && !d.pharmacy && !d.mia && !d.bear);
+svDoor.sv = true; svDoor.locked = true;
+// Hôpital : un immeuble de la ville (choisi après les autres pour ne rien décaler)
+let hospital = null, hpBest = 1e9;
+for (const d of doors.values()) { if (d.kind !== "ville" || d.pharmacy || d.mia || d.bear || d.sv) continue; const dd = Math.hypot(d.x - 40, d.y - 45) + (d.locked ? 40 : 0); if (dd < hpBest) { hpBest = dd; hospital = d; } }
+if (hospital) { hospital.hospital = true; hospital.locked = false; }
+let police = null, poBest = 1e9;
+for (const d of doors.values()) { if (d.kind !== "ville" || d.pharmacy || d.mia || d.bear || d.sv || d.hospital) continue; const dd = Math.hypot(d.x - 20, d.y - 30); if (dd < poBest) { poBest = dd; police = d; } }
+if (police) { police.police = true; police.locked = true; }
+const solidWorld = (tx, ty) => tx < 0 || ty < 0 || tx >= MW || ty >= MH || map[ty][tx] >= BUILD;
+for (const d of doors.values()) d.lockedBase = d.locked;
+
+// Dessin de la carte (une seule fois, dans une grande image)
+const world = document.createElement("canvas"); world.width = MW * TS; world.height = MH * TS;
+const wg = world.getContext("2d");
+const roofs = ["#3b3330", "#303842", "#3f372c", "#33383a", "#40302f"], walls = ["#6a5a4f", "#58626b", "#6b6048", "#5a5f54", "#715c5a"];
+const GREENS = ["#1c3f1f", "#244d27", "#2f6a2f", "#3f7a35"];
+const tAt = (x, y) => (y >= 0 && y < MH && x >= 0 && x < MW) ? map[y][x] : TREE;
+const isRoad = t => t === ROAD || t === CAR || t === BARRIER;
+const carCache = {}, treeCache = {};
+
+function carSprite(type, ci, vert) {
+  const key = type + "|" + ci + "|" + vert;
+  if (carCache[key]) return carCache[key];
+  const c = mk(14, 14), g = c.getContext("2d"), R = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  const col = ["#6e3a30", "#3f5a6c", "#6a6a58"][ci], burnt = type === 1;
+  const body = burnt ? "#1d1b19" : col, glass = burnt ? "#0a0a0a" : "#10171c";
+  R("#0b0b0b", 2, 1, 3, 2); R("#0b0b0b", 9, 1, 3, 2); R("#0b0b0b", 2, 11, 3, 2); R("#0b0b0b", 9, 11, 3, type === 0 ? 1 : 2);
+  R(body, 0, 3, 14, 8); R(body, 1, 2, 12, 1); R(body, 1, 11, 12, 1);
+  R(shade(body, .22), 1, 3, 12, 1); R(shade(body, -.3), 1, 10, 12, 1);
+  R(shade(body, burnt ? .1 : .14), 5, 4, 3, 6);
+  R(glass, 8, 4, 2, 6); R(glass, 3, 4, 2, 6);
+  R(shade(body, .15), 10, 4, 3, 1); R(shade(body, -.15), 10, 9, 3, 1);
+  R("#c8c080", 13, 4, 1, 2); R("#c8c080", 13, 8, 1, 2); R("#6a2020", 0, 4, 1, 2); R("#6a2020", 0, 8, 1, 2);
+  if (type === 0) { R("#7a4a28", 1, 5, 2, 2); R("#7a4a28", 11, 8, 2, 2); R("#5a3418", 6, 10, 3, 1); R("#aebfc6", 8, 5, 1, 1); R("#aebfc6", 9, 7, 1, 1); R("#aebfc6", 3, 6, 1, 2); }
+  if (type === 1) { R("rgba(70,40,15,.7)", 1, 5, 3, 3); R("rgba(70,40,15,.7)", 10, 7, 3, 3); R("#3a2a1a", 6, 4, 1, 6); }
+  if (type === 2) { R(shade(body, .3), 10, 1, 4, 2); R("#aebfc6", 8, 5, 1, 1); R("#aebfc6", 3, 7, 1, 1); R(shade(body, .1), 6, 0, 4, 3); R(glass, 7, 1, 2, 1); R("#aebfc6", 12, 12, 1, 1); R("#aebfc6", 0, 12, 1, 1); }
+  let src = c;
+  if (vert) { src = mk(14, 14); const s = src.getContext("2d"); s.translate(14, 0); s.rotate(Math.PI / 2); s.drawImage(c, 0, 0); }
+  return (carCache[key] = outlineCanvas(src, "#0d0b0a"));
+}
+
+function treeSprite(v) {
+  if (treeCache[v]) return treeCache[v];
+  const c = mk(16, 16), g = c.getContext("2d"), R = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  R("#3d2b1c", 7, 11, 2, 5); R("#2a1d12", 8, 11, 1, 5);
+  if (v < 3) {
+    const base = ["#17391f", "#1a3d22", "#143520"][v], mid = ["#205030", "#245733", "#1d4a2b"][v], hi = ["#2f6c3b", "#367745", "#2a6236"][v];
+    const rows = [[5, 6], [3, 10], [2, 12], [1, 14], [1, 14], [1, 14], [1, 14], [2, 12], [3, 10], [5, 6]];
+    rows.forEach((r, i) => R(base, r[0], 1 + i, r[1], 1));
+    rows.forEach((r, i) => { if (i >= 5) R(shade(base, -.35), r[0] + (r[1] >> 1), 1 + i, Math.ceil(r[1] / 2), 1); });
+    R(mid, 3, 4, 5, 3); R(mid, 8, 3, 4, 3); R(mid, 5, 8, 5, 2);
+    R(hi, 4, 3, 3, 2); R(hi, 8, 2, 2, 2); R(hi, 2, 6, 2, 2); R(hi, 6, 7, 2, 1);
+  } else {
+    const base = ["#12312a", "#143826", "#10302a"][v - 3], hi = ["#23563a", "#27603f", "#215038"][v - 3];
+    const rows = [[7, 1, 2], [6, 2, 4], [6, 3, 4], [5, 4, 6], [5, 5, 6], [4, 6, 8], [4, 7, 8], [3, 8, 10], [3, 9, 10], [2, 10, 12]];
+    rows.forEach(r => { R(base, r[0], r[1], r[2], 1); R(shade(base, -.35), r[0] + (r[2] >> 1) + 1, r[1], r[2] >> 1, 1); if (r[1] % 2) R(hi, r[0] + 1, r[1], 1, 1); });
+    R(hi, 7, 1, 1, 1);
+  }
+  return (treeCache[v] = outlineCanvas(c, "#0b1d12"));
+}
+
+function paintTile(x, y) {
+  const g = wg, X = x * TS, Y = y * TS, t = map[y][x], h = k => hh(x, y, k);
+  const R = (c, a, b, w, hg) => { g.fillStyle = c; g.fillRect(X + a, Y + b, w, hg); };
+  const speck = (col, n, k0) => { for (let i = 0; i < n; i++) R(col, Math.floor(h(k0 + i) * 15), Math.floor(h(k0 + 40 + i) * 15), 1, 1); };
+  const tuft = (a, b) => { R(GREENS[2], a, b, 1, 2); R(GREENS[3], a + 1, b + 1, 1, 1); R(GREENS[1], a - 1, b + 1, 1, 1); };
+  const crack = n => { for (let i = 0; i < n; i++) { const a = Math.floor(h(240 + i) * 9), b = Math.floor(h(250 + i) * 11) + 1; R("#161918", a, b, 5, 1); R("#161918", a + 4, b, 1, 3); R("#161918", a + 4, b + 2, 4, 1); if (h(260 + i) < 0.5) tuft(a + 7, b + 1); } };
+  const bx = ((x - 3) % 10 + 10) % 10, by = byOf(y);
+
+  /* ---------- routes, voitures, barrières ---------- */
+  if (isRoad(t)) {
+    const hor = by >= 7 && bx < 8, vert = bx >= 8 && by < 7, inter = by >= 7 && bx >= 8;
+    R(h(1) < 0.5 ? "#2b2f2e" : "#2d3231", 0, 0, 16, 16); speck("#343938", 8, 10); speck("#252928", 6, 30);
+    if (hor && by === 7 && x % 2 === 0 && h(13) > 0.22) R("#8d8758", 1, 15, 14, 1);
+    if (vert && bx === 8 && y % 2 === 0 && h(14) > 0.22) R("#8d8758", 15, 1, 1, 14);
+    if (h(15) < 0.4) { if (hor || inter) { R("rgba(0,0,0,.16)", 0, 3, 16, 2); R("rgba(0,0,0,.16)", 0, 10, 16, 2); } else { R("rgba(0,0,0,.16)", 3, 0, 2, 16); R("rgba(0,0,0,.16)", 10, 0, 2, 16); } }
+    if (h(16) < 0.3) crack(1 + (h(17) < 0.4 ? 1 : 0));
+    if (h(18) < 0.04) { R("#1e2120", 4, 5, 8, 5); R("#3a3f3d", 4, 5, 8, 1); R("#1e2120", 5, 10, 6, 1); }
+    if (h(19) < 0.04) { R("#2f3e49", 3, 5, 10, 5); R("#455a68", 4, 6, 5, 1); R("#2f3e49", 5, 10, 6, 1); }
+    if (h(20) < 0.3) speck("#8a8a7c", 2, 270);
+    [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([dx, dy]) => {
+      if (isRoad(tAt(x + dx, y + dy))) return;
+      if (dy === -1) { R("#5c615b", 0, 0, 16, 2); R("#3e433e", 0, 2, 16, 1); }
+      else if (dy === 1) { R("#3e433e", 0, 13, 16, 1); R("#5c615b", 0, 14, 16, 2); }
+      else if (dx === -1) { R("#5c615b", 0, 0, 2, 16); R("#3e433e", 2, 0, 1, 16); }
+      else { R("#3e433e", 13, 0, 1, 16); R("#5c615b", 14, 0, 2, 16); }
+    });
+    if (h(21) < 0.25) tuft(2 + Math.floor(h(22) * 11), 2);
+    if (t === CAR) { R("rgba(0,0,0,.35)", 1, 12, 14, 3); g.drawImage(carSprite(Math.floor(h(5) * 3), Math.floor(h(6) * 3), vert), X, Y); }
+    if (t === BARRIER) {
+      R("rgba(0,0,0,.35)", 1, 12, 14, 3); R("#3a3a3a", 2, 8, 2, 6); R("#3a3a3a", 12, 8, 2, 6);
+      R("#d9d9d0", 1, 4, 14, 4); R("#c25b22", 3, 4, 3, 4); R("#c25b22", 9, 4, 3, 4); R("#8a8a80", 1, 7, 14, 1); R("#0d0b0a", 1, 3, 14, 1); R("#c8a030", 7, 2, 2, 2);
+    }
+    return;
+  }
+
+  /* ---------- trottoirs, sentiers, décombres ---------- */
+  if (t === WALK || t === DEBRIS) {
+    if (x > CITY_END) {
+      R("#4a3d2c", 0, 0, 16, 16); speck("#54463a", 10, 10); speck("#3f3425", 8, 30);
+      for (let i = 0; i < 4; i++) R(["#5f5242", "#6a4a22", "#74552c", "#5f5242"][i], Math.floor(h(280 + i) * 13), Math.floor(h(290 + i) * 13), 2, 1);
+      [[0, -1], [0, 1]].forEach(([dx, dy]) => { const n = tAt(x + dx, y + dy); if (n === GRASS || n === TREE) for (let i = 0; i < 16; i += 2) if (h(300 + i + (dy > 0 ? 20 : 0)) < 0.7) R(i % 4 ? "#2a4d32" : "#3f6e3d", i, dy < 0 ? 0 : 14, 2, 2); });
+    } else {
+      R(["#565b55", "#5b605a", "#52574f"][Math.floor(h(2) * 3)], 0, 0, 16, 16);
+      R("#434842", 0, 7, 16, 1); R("#434842", 7, 0, 1, 7); R("#434842", 3, 8, 1, 8); R("#434842", 11, 8, 1, 8);
+      R("rgba(255,255,255,.05)", 0, 0, 16, 1); R("rgba(255,255,255,.05)", 0, 8, 16, 1);
+      speck("#4a4f49", 6, 10);
+      if (h(21) < 0.35) crack(1);
+      for (let i = 0; i < 3; i++) if (h(22 + i) < 0.4) { const a = [7, 3, 11][i], b = [6, 14, 14][i]; tuft(a, b - 1); }
+      if (h(26) < 0.18) { R("#3d5a33", Math.floor(h(27) * 10), Math.floor(h(28) * 10), 3, 2); R("#4a6a3a", Math.floor(h(27) * 10) + 1, Math.floor(h(28) * 10), 1, 1); }
+      if (h(29) < 0.12) speck("#8a8a7c", 2, 270);
+      if (h(70) < 0.04 && t === WALK) { // lampadaire éteint
+        R("rgba(0,0,0,.3)", 6, 13, 6, 2); R("#2a2e2e", 7, 4, 2, 10); R("#1a1d1d", 8, 4, 1, 10); R("#3a3f3f", 5, 2, 6, 3); R("#6a6a50", 6, 4, 4, 1);
+      }
+    }
+    if (t === DEBRIS) {
+      R("rgba(0,0,0,.4)", 1, 11, 14, 4);
+      if (h(25) < 0.5) { R("#6a6a66", 2, 7, 6, 6); R("#8a8a84", 4, 5, 5, 5); R("#9a4a36", 9, 8, 4, 4); R("#5a5a56", 1, 10, 4, 3); R("#c9c9c0", 6, 5, 2, 1); R("#2a2a2a", 11, 3, 1, 6); R("#4a4a46", 2, 7, 6, 1); }
+      else { R("#3a4a3a", 2, 6, 10, 7); R("#2a382a", 2, 6, 10, 2); R("#222", 11, 7, 3, 5); R("#8a8a7a", 13, 12, 2, 1); R("#7a5a3a", 0, 10, 3, 2); R("#4a5a4a", 3, 8, 6, 1); }
+    }
+    return;
+  }
+
+  /* ---------- herbe et arbres ---------- */
+  if (t === GRASS || t === TREE) {
+    const gv = hh(x >> 1, y >> 1, 90);
+    R(gv < 0.33 ? "#1f3b27" : gv < 0.66 ? "#22402a" : "#264830", 0, 0, 16, 16); speck("#2d5535", 8, 10); speck("#16301e", 8, 30);
+    for (let i = 0; i < 5; i++) R(i % 2 ? GREENS[2] : GREENS[3], Math.floor(h(50 + i) * 14), Math.floor(h(60 + i) * 13), 1, 2 + (h(70 + i) < 0.5 ? 1 : 0));
+    if (h(23) < 0.05) { const fx = Math.floor(h(24) * 13), fy = Math.floor(h(26) * 11); R(GREENS[1], fx, fy + 1, 1, 2); R(["#c8b86a", "#a898c8", "#c8788a"][Math.floor(h(36) * 3)], fx, fy, 1, 1); }
+    if (h(37) < 0.05) R("#3a3226", Math.floor(h(38) * 10), Math.floor(h(39) * 12), 4, 2);
+    if (x > CITY_END && h(41) < 0.1) R(["#5a4326", "#6a4a22", "#4a3a20"][Math.floor(h(42) * 3)], Math.floor(h(43) * 13), Math.floor(h(44) * 13), 2, 1);
+    if (t === GRASS && h(35) < 0.06) { R("rgba(0,0,0,.3)", 3, 11, 10, 3); R("#0f2616", 3, 5, 10, 7); R("#183a22", 4, 5, 8, 6); R("#2c6a3a", 5, 6, 3, 2); R("#22502e", 9, 8, 2, 2); }
+    if (t === TREE) {
+      R("rgba(0,0,0,.3)", 3, 12, 11, 3);
+      const v = x > CITY_END && h(27) < 0.6 ? 3 + Math.floor(h(28) * 3) : Math.floor(h(29) * 3);
+      g.drawImage(treeSprite(v), X - 1, Y - 1);
+    }
+    return;
+  }
+
+  /* ---------- bâtiments ---------- */
+  if (t === BUILD) {
+    const cabin = x > CITY_END, [ix, iy] = blockInfo(x, y), v = Math.floor(hh(ix, iy, 6) * 5), shop = !cabin && hh(ix, iy, 20) < 0.35;
+    const facade = tAt(x, y + 1) !== BUILD, door = doors.get(y * MW + x);
+    const wall = cabin ? "#5a4330" : walls[v], roof = cabin ? "#4a3626" : roofs[v], wf = shade(wall, .28);
+    if (!facade) {
+      R(roof, 0, 0, 16, 16); speck(shade(roof, .12), 8, 70); speck(shade(roof, -.2), 8, 90);
+      if (cabin) { for (let i = 3; i < 16; i += 4) R(shade(roof, -.28), 0, i, 16, 1); for (let i = 0; i < 16; i += 4) R(shade(roof, .08), (i + (y % 2 ? 2 : 0)) % 16, 0, 1, 3); }
+      else for (let i = 5; i < 16; i += 5) R(shade(roof, -.18), i, 0, 1, 16);
+      const rim = shade(roof, .28), rimD = shade(roof, -.45);
+      if (tAt(x, y - 1) !== BUILD) { R(rim, 0, 0, 16, 2); R(rimD, 0, 2, 16, 1); }
+      if (tAt(x - 1, y) !== BUILD) { R(rim, 0, 0, 2, 16); R(rimD, 2, 0, 1, 16); }
+      if (tAt(x + 1, y) !== BUILD) { R(rimD, 13, 0, 1, 16); R(rim, 14, 0, 2, 16); }
+      const o = h(30);
+      if (!cabin) {
+        if (o < 0.1) { R("rgba(0,0,0,.3)", 4, 11, 9, 2); R("#6a6e6e", 3, 4, 9, 7); R("#8a8e8e", 3, 4, 9, 2); R("#222", 6, 7, 4, 3); R("#3a3a3a", 7, 8, 2, 1); }
+        else if (o < 0.17) { R("#2a3a44", 3, 3, 10, 8); R("#8a8a82", 3, 3, 10, 1); R("#8a8a82", 3, 10, 10, 1); R("#8a8a82", 3, 3, 1, 8); R("#8a8a82", 12, 3, 1, 8); R("#aebfc6", 6, 5, 1, 1); R("#aebfc6", 7, 6, 2, 1); }
+        else if (o < 0.22) { R("rgba(0,0,0,.3)", 5, 11, 8, 2); R("#5a4a3a", 4, 3, 8, 8); R("#7a6a54", 4, 3, 8, 1); R("#3a2a1c", 4, 6, 8, 1); R("#3a2a1c", 4, 9, 8, 1); }
+        else if (o < 0.27) { R("rgba(0,0,0,.3)", 11, 6, 4, 2); R("#4a3a36", 10, 2, 4, 5); R("#6a5a54", 10, 2, 4, 1); R("#1a1412", 11, 3, 2, 2); }
+      }
+      for (let i = 0; i < 2; i++) if (h(100 + i) < 0.4) R("rgba(0,0,0,.18)", Math.floor(h(110 + i) * 10), Math.floor(h(120 + i) * 10), 4, 3);
+      for (let i = 0; i < 3; i++) if (h(90 + i) < 0.4) { const mx = Math.floor(h(360 + i) * 11), my = Math.floor(h(370 + i) * 11); R("#33502b", mx, my, 4, 3); R("#456a38", mx + 1, my, 2, 2); }
+      if (h(95) < 0.07) { R("#0b0c0d", 3, 3, 9, 8); R("#2a2220", 2, 10, 3, 2); R("#5a4a42", 11, 3, 3, 2); R("#3a3230", 3, 3, 9, 1); }
+      if (tAt(x, y + 1) === BUILD && h(96) < 0.25) { R(GREENS[0], 2, 12, 12, 4); R(GREENS[2], 4, 11, 4, 2); R(GREENS[3], 9, 12, 2, 1); }
+    } else {
+      R(wall, 0, 0, 16, 16);
+      if (cabin) { for (let i = 0; i < 16; i += 4) R(shade(wall, -.22), i, 0, 1, 16); R(shade(wall, .15), 0, 0, 16, 1); R(shade(wall, -.35), 0, 14, 16, 2); }
+      else { speck(shade(wall, .1), 6, 100); R(shade(wall, .18), 0, 0, 16, 2); R(shade(wall, -.4), 0, 2, 16, 1); R(shade(wall, -.25), 0, 13, 16, 3); R(shade(wall, -.4), 0, 13, 1, 1); R(shade(wall, -.4), 0, 13, 16, 1); }
+      if (shop) {
+        const sc = ["#7a3a3a", "#3a5a7a", "#7a6a2a"][Math.floor(hh(ix, iy, 21) * 3)];
+        R(sc, 0, 3, 16, 3); R(shade(sc, -.4), 0, 6, 16, 1);
+        for (let i = 0; i < 4; i++) if (h(130 + i) > 0.25) R("rgba(235,230,210,.4)", 2 + i * 3, 4, 2, 1);
+      }
+      if (door) {
+        R(shade(wall, .25), 3, 3, 10, 13); R("#0c0806", 4, 4, 8, 12);
+        if (door.locked) { R("#4a3a2a", 4, 4, 8, 12); R("#2a2018", 7, 4, 2, 12); R("#6b5236", 4, 7, 8, 2); R("#c9a24a", 6, 9, 4, 3); R("#7a5a1a", 7, 8, 2, 1); }
+        else { R("#3a281b", 4, 4, 3, 12); R("#7a5a2b", 5, 10, 1, 1); R("#6b5236", 4, 8, 5, 2); }
+        R(shade(wall, -.1), 2, 14, 12, 2);
+        if (door.kind === "metro") { R("#17407a", 1, 0, 14, 3); R("#fff", 3, 0, 1, 3); R("#fff", 4, 0, 1, 1); R("#fff", 5, 1, 1, 1); R("#fff", 6, 0, 1, 1); R("#fff", 7, 0, 1, 3); R("#e0a33a", 9, 1, 5, 1); }
+      } else if (shop) {
+        R(wf, 1, 7, 14, 6); R("#10171c", 2, 8, 12, 4); R("rgba(255,255,255,.06)", 3, 8, 4, 1);
+        for (let i = 0; i < 16; i += 2) R(i % 4 ? "#8a3e3e" : "#bdb7a4", i, 6, 2, 2);
+        R("rgba(0,0,0,.3)", 0, 8, 16, 1);
+        if (h(7) < 0.5) { R("#9fb2b8", 3, 9, 1, 2); R("#9fb2b8", 9, 9, 2, 1); R("#9fb2b8", 12, 10, 1, 2); }
+      } else {
+        const wv = h(7);
+        R(wf, 3, 4, 10, 8); R("#141b21", 4, 5, 8, 6);
+        if (wv < 0.09) { R("#6e6038", 4, 5, 8, 6); R("#4a4028", 6, 6, 2, 5); }
+        else if (wv < 0.45) { R("#9fb2b8", 4, 5, 2, 1); R("#9fb2b8", 10, 5, 2, 2); R("#9fb2b8", 4, 10, 1, 1); R("#9fb2b8", 8, 10, 3, 1); R("#9fb2b8", 7, 7, 2, 1); if (h(8) < 0.5) R("#5a4a4a", 4, 5, 3, 6); }
+        else if (wv < 0.65) { R("#6b5236", 2, 5, 12, 2); R("#5a4430", 2, 8, 12, 2); R("#2a2018", 4, 5, 1, 1); R("#2a2018", 11, 8, 1, 1); }
+        else { R(wf, 7, 5, 2, 6); R(wf, 4, 8, 8, 1); if (h(9) < 0.4) R(["#5a4a4a", "#4a5a5a", "#5a5a4a"][Math.floor(h(10) * 3)], 4, 5, 3, 6); }
+        R(shade(wall, .3), 2, 12, 12, 1); R(shade(wall, -.35), 2, 13, 12, 1);
+        if (h(11) < 0.18) { R("#4a5a4a", 1, 4, 2, 8); R("#4a5a4a", 13, 4, 2, 8); R("#3a4a3a", 1, 4, 1, 8); }
+        if (h(12) < 0.06) { R("#7a7e7e", 11, 12, 4, 3); R("#4a4e4e", 12, 13, 2, 1); }
+      }
+      if (h(120) < 0.4) { R("rgba(0,0,0,.4)", 1, 3, 1, 4); R("rgba(0,0,0,.4)", 2, 6, 1, 3); R("rgba(0,0,0,.4)", 3, 8, 1, 4); }
+      if (!cabin && h(130) < 0.08) { R("#b03a5a", 2, 12, 7, 1); R("#b03a5a", 5, 12, 1, 3); R("#3a9aa0", 9, 13, 5, 1); }
+      if (svShown && svDoor && x === svDoor.x - 1 && y === svDoor.y) { R("#4a8ad0", 7, 2, 2, 11); R("#4a8ad0", 4, 3, 3, 3); R("#4a8ad0", 9, 3, 3, 3); R("#2f5f9a", 7, 4, 2, 2); }
+      if (bearShown && bearDoor && x === bearDoor.x - 1 && y === bearDoor.y) { R("#e0709a", 7, 2, 2, 11); R("#e0709a", 4, 3, 3, 3); R("#e0709a", 9, 3, 3, 3); R("#b04a74", 7, 4, 2, 2); }
+      if (police && x === police.x + 1 && y === police.y) { R("#1f3b6a", 2, 2, 12, 11); R("#e0c040", 7, 4, 2, 7); R("#e0c040", 5, 6, 6, 3); R("#1f3b6a", 6, 5, 4, 5); R("#e0c040", 7, 6, 2, 3); }
+      if (hospital && x === hospital.x + 1 && y === hospital.y) { R("#d9d9d0", 2, 2, 12, 11); R("#c0392b", 6, 3, 4, 9); R("#c0392b", 3, 6, 10, 3); }
+      if (hospital && x === hospital.x - 1 && y === hospital.y) { R("#d9d9d0", 3, 3, 10, 9); R("#c0392b", 5, 4, 2, 7); R("#c0392b", 9, 4, 2, 7); R("#c0392b", 5, 7, 6, 2); }
+      if (pharm && x === pharm.x + 1 && y === pharm.y) { R("#1a1f1b", 2, 3, 12, 10); R("#3fbf6a", 6, 3, 4, 10); R("#3fbf6a", 3, 6, 10, 4); R("#8ae0a8", 6, 3, 1, 10); R("#8ae0a8", 3, 6, 10, 1); }
+    }
+    if (h(140) < 0.6) {
+      for (let i = 0; i < 16; i += 2) if (h(150 + i) < 0.65) {
+        const L = facade ? 3 + Math.floor(h(170 + i) * 12) : 2 + Math.floor(h(170 + i) * 6);
+        R(GREENS[0], i, facade ? 0 : 16 - L, 2, L);
+        for (let j = 2; j < L; j += 3) { R(GREENS[h(190 + i + j) < 0.5 ? 2 : 1], i - 1 + (j % 2), facade ? j : 16 - L + j, 3, 2); R(GREENS[3], i + (j % 2), facade ? j : 16 - L + j, 1, 1); }
+      }
+      if (facade && h(141) < 0.5) { R(GREENS[0], 0, 0, 16, 3); for (let i = 0; i < 16; i += 3) { R(GREENS[2], i, 2, 2, 2); R(GREENS[3], i, 2, 1, 1); } }
+    }
+    return;
+  }
+
+  /* ---------- laboratoire ---------- */
+  if (t === LAB || t === LABDOOR) {
+    const facade = tAt(x, y + 1) !== LAB && tAt(x, y + 1) !== LABDOOR;
+    if (!facade) {
+      R("#2f3d44", 0, 0, 16, 16); R("rgba(255,255,255,.07)", 0, 0, 16, 1); R("rgba(0,0,0,.25)", 0, 15, 16, 1);
+      if ((x + y) % 2 === 0) { R("#1f292e", 3, 3, 10, 10); R("#3d4d55", 4, 4, 8, 1); R("#3d4d55", 4, 7, 8, 1); R("#3d4d55", 4, 10, 8, 1); }
+      if (h(31) < 0.3) R("#3fa89c", 7, 7, 2, 2);
+    } else {
+      R("#aeb7b7", 0, 0, 16, 16); R("#8d979a", 0, 13, 16, 3);
+      for (let i = 0; i < 16; i += 4) { R("#d6b52a", i, 0, 2, 2); R("#1b1b1b", i + 2, 0, 2, 2); }
+      if (t === LABDOOR) { R("#1b2b2b", 1, 3, 14, 13); R("#7ce0c0", 3, 5, 10, 11); R("#d9f2e8", 7, 5, 2, 11); R("#cfd8d8", 0, 2, 1, 14); R("#cfd8d8", 15, 2, 1, 14); }
+      else { R("#1b2b2b", 2, 4, 12, 7); R("#3fa89c", 3, 5, 10, 5); R("rgba(255,255,255,.25)", 3, 5, 10, 1); }
+    }
+    return;
+  }
+
+  /* ---------- mur de quarantaine et portails ---------- */
+  if (t === WALL || t === GATE) {
+    R("#585d58", 0, 0, 16, 16);
+    for (let i = 3; i < 16; i += 4) R("#474c47", 0, i, 16, 1);
+    for (let i = 0; i < 4; i++) R("#474c47", (i * 5 + y * 3) % 16, (i * 4) % 16, 1, 4);
+    if (t === WALL) {
+      R("#1e2120", 0, 0, 16, 3); for (let i = 1; i < 16; i += 3) R("#9a9a90", i, 1, 1, 1);
+      if (h(60) < 0.4) { R("#8a3a3a", 2, 8, 8, 1); R("#8a3a3a", 3, 9, 1, 3); }
+      for (let i = 0; i < 16; i += 2) if (h(150 + i) < 0.35) { const L = 3 + Math.floor(h(170 + i) * 9); R(GREENS[0], i, 3, 2, L); R(GREENS[2], i - 1, 4 + (L >> 1), 3, 2); }
+      if (h(61) < 0.3) { R("rgba(0,0,0,.4)", 5, 6, 1, 5); R("rgba(0,0,0,.4)", 6, 10, 3, 1); }
+    } else {
+      R("#23282b", 0, 0, 16, 16); R("#d6b52a", 0, 0, 16, 2);
+      for (let i = 1; i < 16; i += 3) R("#6a7378", i, 2, 1, 14);
+      R("#6a7378", 0, 6, 16, 1); R("#6a7378", 0, 12, 16, 1); R("#c9a24a", 6, 6, 4, 4); R("#7a5a1a", 7, 5, 2, 1);
+    }
+  }
+}
+
+// Dessin de la carte (une seule fois, dans une grande image)
+(function paintWorld() {
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) paintTile(x, y);
+  const g = wg, R = (c, x, y, w, h) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+  R("#1b2b2b", (LDX - 1) * TS + 4, (LDY - 1) * TS + 2, 4 * TS - 8, 12); R("#3fa89c", (LDX - 1) * TS + 5, (LDY - 1) * TS + 3, 4 * TS - 10, 10);
+  g.fillStyle = "#0d1f1c"; g.font = "bold 9px monospace"; g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillText("LABO", (LDX + 1) * TS, (LDY - 1) * TS + 9);
+})();
+
+/* ---------- Objets, sac à dos et indices ---------- */
+const ITEMS = {
+  conserve: { name: "Conserve", desc: "De la nourriture. Redonne des forces.", use: "Manger", col: "#c9a24a" },
+  eau: { name: "Eau", desc: "Une bouteille d'eau encore fermée.", use: "Boire", col: "#5aa0c8" },
+  corde: { name: "Corde", desc: "Solide et longue. Elle sert à escalader un mur, une seule fois.", col: "#b99a62" },
+  radio: { name: "Radio cassée", desc: "Il lui manque une antenne, une batterie et un fusible. Répare-la depuis le sac à dos.", col: "#7a8080" },
+  antenne: { name: "Antenne", desc: "Une antenne télescopique. Pièce de la radio.", col: "#c8ced2" },
+  batterie: { name: "Batterie", desc: "Une batterie encore chargée. Pièce de la radio.", col: "#d9a03a" },
+  fusible: { name: "Fusible", desc: "Un fusible intact. Pièce de la radio.", col: "#c8a030" },
+  bois: { name: "Bois", desc: "Des branches et des bûches. Pour la hache, le feu et l'abri.", col: "#8a6a3a" },
+  hache: { name: "Hache", desc: "Coupe les arbres et frappe les infectés : 2 dégâts par coup. 16 coups.", col: "#9aa0a6" },
+  pieu: { name: "Pieu", desc: "Léger et rapide : 1 dégât par coup, il touche un peu plus loin. Fragile : 7 coups.", col: "#b08a5a" },
+  batte: { name: "Batte à clous", desc: "Lourde : 3 dégâts par coup, elle repousse fort. Lente. 12 coups.", col: "#8a7a6a" },
+  clous: { name: "Clous", desc: "Des clous rouillés. Servent à fabriquer la batte et les pièges.", col: "#8a8a82" },
+  torche: { name: "Torche", desc: "Éclaire la nuit et repousse les infectés proches pendant 100 secondes. Mais la lumière se voit de plus loin. Bouton Torche pour l'allumer.", col: "#e0933a" },
+  piege: { name: "Piège à clous", desc: "À poser par terre. Le premier infecté qui marche dessus prend 2 dégâts et reste cloué 2 secondes. Usage unique. 6 pièges posés maximum.", col: "#8a8a82" },
+  matraque: { name: "Matraque", desc: "Une matraque de policier : 2 dégâts, très rapide, solide (20 coups).", col: "#6a7a9a" },
+  note7: { name: "Message de la police", col: "#e6ebdf", text: "Ordre interne : le mur a été fermé en trois jours. Les portails ont des clés, et une corde permet de l'escalader. Le métro passe en dessous : le tunnel est noir comme de l'encre, prévoyez une torche. Ne vous séparez pas." },
+  trousse: { name: "Trousse de soins", desc: "Bandages et désinfectant. Soigne une morsure : +1 vie (jusqu'au maximum de ta difficulté). Si une morsure te serait fatale, la trousse te sauve automatiquement. Rare : l'hôpital en contient 2 en facile, 1 en modéré et 1 en difficile.", use: "Se soigner", col: "#d9594a" },
+  note6: { name: "Registre de l'hôpital", col: "#e6ebdf", text: "Registre des urgences, jour 5 : le service est fermé. Les patients mordus changent en quelques heures. Le Dr Vasseur est venu chercher des échantillons de sang. Il pense que la bactérie craint le froid : il a parlé de la chambre froide de son laboratoire." },
+  ours: { name: "Ours en peluche", desc: "Un vieil ours usé. Mia y tient énormément.", col: "#c98a5a" },
+  cle: { name: "Clé", desc: "Ouvre une porte verrouillée ou un portail du grand mur, une seule fois.", col: "#d9c56a" },
+  carte: { name: "Carte d'accès", desc: "Le badge du laboratoire. Il ouvre la porte principale.", col: "#3fbf9a" },
+  note1: { name: "Note 1", col: "#e6ebdf", text: "Journal, jour 3. La Brume est sortie de la ville avec la bactérie. Une morsure, et en quelques heures la personne n'est plus la même. Ne restez pas dehors la nuit." },
+  note2: { name: "Note 2", col: "#e6ebdf", text: "Mot griffonné : la carte d'accès du laboratoire est restée à la pharmacie, celle avec la croix verte sur la façade. Sans elle, la porte ne s'ouvrira jamais." },
+  note3: { name: "Note 3", col: "#e6ebdf", text: "Message radio : le laboratoire du Dr Vasseur travaille sur un remède. Il se trouve à l'est, de l'autre côté de la forêt. Suivez les sentiers de terre. Boussole activée." },
+  note4: { name: "Note 4", col: "#e6ebdf", text: "Petit papier : les infectés voient mal mais repèrent le mouvement. Accroupi, on passe souvent inaperçu. Et ils ne savent pas ouvrir les portes. Un grand mur coupe la ville de la forêt : les portails sont verrouillés, mais avec une corde on peut l'escalader." },
+  note5: { name: "Note 5", col: "#e6ebdf", text: "Plan froissé : plusieurs cabanes jalonnent la forêt. Presque toutes sont vides et sûres. Bon endroit pour reprendre son souffle." }
+};
+const NOTE_POS = [[11, 2], [21, 11], [34, 20], [48, 29], [84, 47]];
+const PAGES = [
+  "Page 1. Jour 1. La bactérie a été isolée dans un échantillon de sol. Elle réagit à la chaleur du corps. Je pense qu'on peut la stopper.",
+  "Page 2. Jour 4. Le premier patient mordu a changé en six heures. Le sérum de base ralentit la bactérie, mais ne la détruit pas.",
+  "Page 3. Jour 9. Ma fille Mia s'est cachée en ville avec son ours, Capitaine. Je ne peux pas quitter le laboratoire sans abandonner la recherche. Je lui ai laissé une clé.",
+  "Page 4. Jour 15. Le remède est stable. Le code de la porte du laboratoire est la date de naissance de Mia : 1406. Il faut aussi la carte d'accès.",
+  "Page 5. Jour 21. Si vous lisez ceci, le laboratoire tient encore. Le remède est dans la chambre froide, au fond. Dites à Mia que son père l'aime."
+];
+const PAGE_POS = [[38, 4, false], [50, 40, true], [22, 58, false], [70, 12, true], [88, 40, false]];
+function findFree(x0, y0) {
+  for (let r = 0; r < 14; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+    const x = x0 + dx, y = y0 + dy;
+    if (x < 1 || y < 1 || x >= MW - 1 || y >= MH - 1) continue;
+    if (!solidWorld(x, y) && [ROAD, WALK, GRASS].includes(map[y][x])) return { x, y };
+  }
+  return { x: x0, y: y0 };
+}
+const basePickups = [];
+NOTE_POS.forEach((p, i) => { const f = findFree(p[0], p[1]); basePickups.push({ k: "note" + (i + 1), x: f.x, y: f.y }); });
+PAGE_POS.forEach((p, i) => { const f = findFree(p[0], p[1]); basePickups.push({ k: "page" + (i + 1), x: f.x, y: f.y, hidden: p[2] }); });
+[["corde", 10, 3, false], ["corde", 26, 12, false], ["cle", 17, 1, true], ["cle", 33, 10, true]].forEach(a => { const f = findFree(a[1], a[2]); basePickups.push({ k: a[0], x: f.x, y: f.y, hidden: a[3] }); });
+(function placePickups() {
+  let tries = 0, vis = 0, hid = 0;
+  while ((vis < 22 || hid < 22) && tries++ < 12000) {
+    const tx = 2 + Math.floor(hh(tries, 5, 55) * (MW - 4)), ty = 2 + Math.floor(hh(5, tries, 56) * (MH - 4));
+    if (solidWorld(tx, ty) || ![ROAD, WALK, GRASS].includes(map[ty][tx])) continue;
+    if (tx < 8 && ty < 4) continue;
+    if (basePickups.some(p => Math.hypot(p.x - tx, p.y - ty) < 4)) continue;
+    const r = hh(tx, ty, 57), hidden = hh(tx, ty, 58) < 0.46;
+    if (hidden ? hid >= 22 : vis >= 22) continue;
+    const k = hidden ? (r < 0.4 ? "conserve" : r < 0.55 ? "eau" : r < 0.8 ? "cle" : "corde") : (r < 0.6 ? "conserve" : r < 0.82 ? "eau" : "corde");
+    if (hidden) hid++; else vis++;
+    basePickups.push({ k, x: tx, y: ty, hidden });
+  }
+})();
+
+[["radio", 30, 6, false], ["antenne", 44, 50, true], ["batterie", 18, 36, false], ["fusible", 76, 22, true]].forEach(a => { const f = findFree(a[1], a[2]); basePickups.push({ k: a[0], x: f.x, y: f.y, hidden: a[3] }); });
+
+// Cachettes : on peut fouiller les gravats et les voitures de la ville
+const spots = [];
+for (let y = 1; y < MH - 1; y++) for (let x = 1; x <= CITY_END; x++) if (map[y][x] === DEBRIS || map[y][x] === CAR) {
+  const r = hh(x, y, 800);
+  spots.push({ x, y, k: r < 0.22 ? "conserve" : r < 0.31 ? "eau" : r < 0.38 ? "cle" : r < 0.42 ? "corde" : r < 0.55 ? "clous" : null });
+}
+
+/* ---------- L'intérieur des bâtiments ---------- */
+const IW = 20, IH = 15, interiors = new Map();
+function buildInterior(d) {
+  const seed = d.x * 7919 + d.y * 104729, r = k => hh(seed, k, 900);
+  const sol = Array.from({ length: IH }, (_, y) => Array.from({ length: IW }, (_, x) => x === 0 || x === IW - 1 || y <= 2 || (y === IH - 1 && !(x === 9 || x === 10))));
+  const pc = Array.from({ length: IH }, () => Array(IW).fill(false));
+  const TYPES = [{ t: "shelf", w: 3, h: 1 }, { t: "shelf", w: 2, h: 1 }, { t: "table", w: 2, h: 2 }, { t: "bed", w: 2, h: 3 }, { t: "sofa", w: 3, h: 1 }, { t: "wardrobe", w: 2, h: 1 }];
+  const pieces = [];
+  const place = T => {
+    for (let a = 0; a < 50; a++) {
+      const x = 2 + Math.floor(r(a * 3 + 1000 + pieces.length * 7) * (16 - T.w)), wall = T.t === "shelf" || T.t === "wardrobe";
+      const y = wall ? 3 : 4 + Math.floor(r(a * 3 + 2000 + pieces.length * 7) * (9 - T.h));
+      let ok = !(x + T.w > 8 && x < 12 && y + T.h > 9) && !(d.kind === "metro" && y <= 5 && x + T.w > 6 && x < 14);
+      for (let yy = y - 1; yy <= y + T.h && ok; yy++) for (let xx = x - 1; xx <= x + T.w && ok; xx++) if (xx >= 0 && xx < IW && yy >= 0 && yy < IH && pc[yy][xx]) ok = false;
+      if (!ok) continue;
+      for (let yy = y; yy < y + T.h; yy++) for (let xx = x; xx < x + T.w; xx++) pc[yy][xx] = true;
+      pieces.push({ t: T.t, x, y, w: T.w, h: T.h, search: T.t === "shelf" || T.t === "table" || T.t === "wardrobe" });
+      return true;
+    }
+    return false;
+  };
+  if (d.built) place(TYPES[3]);
+  if (d.hospital) [3, 3, 3, 5, 0, 5].forEach(i => place(TYPES[i]));
+  if (d.police) [2, 5, 5, 0, 2].forEach(i => place(TYPES[i]));
+  if (d.pharmacy) place(TYPES[0]);
+  const want = d.built ? 1 : d.hospital ? 6 : d.police ? 5 : d.kind === "metro" ? 4 : 3 + Math.floor(r(1) * 3);
+  for (let a = 0; pieces.length < want && a < 30; a++) place(TYPES[Math.floor(r(50 + a) * TYPES.length)]);
+  let first = pieces.findIndex(p => p.search);
+  if (first < 0) { place(TYPES[0]); first = pieces.findIndex(p => p.search); }
+  let hq = 0, kq = 0;
+  pieces.forEach((p, i) => {
+    if (d.built) { p.search = false; return; }
+    if (!p.search) return;
+    if (d.police) { p.loot = ["matraque", "cle", "note7", "clous", "conserve"][hq++] || null; return; }
+    if (d.hospital) { const L = ["trousse", "note6", "trousse", "eau", "conserve", "trousse"][hq++] || null; p.loot = L; if (L === "trousse") { p.kit = kq++; p.alt = ["eau", "conserve", null][p.kit] || null; } return; }
+    if (d.pharmacy && i === first) p.loot = "carte";
+    else if (d.bear && i === first) p.loot = "ours";
+    else { const q = hh(d.x, d.y, 700 + i); p.loot = q < 0.3 ? "conserve" : q < 0.42 ? "eau" : q < 0.48 ? "corde" : q < 0.57 ? "cle" : q < 0.69 ? "clous" : null; }
+  });
+  let kid = null;
+  if (d.mia || d.sv) {
+    const cand = [];
+    for (let y = 4; y <= 11; y++) for (let x = 2; x <= 17; x++) if (!sol[y][x] && !pc[y][x] && (pc[y - 1][x] || pc[y][x - 1] || pc[y][x + 1]) && !(x >= 8 && x <= 11 && y >= 9)) cand.push([x, y]);
+    const k = cand.length ? cand[Math.floor(r(d.sv ? 78 : 77) * cand.length)] : [3, 4];
+    kid = { x: k[0] * TS, y: k[1] * TS - 2 };
+  }
+  // dessin
+  const c = document.createElement("canvas"); c.width = IW * TS; c.height = IH * TS;
+  const g = c.getContext("2d"), R = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  const cabin = d.kind === "cabane";
+  for (let y = 0; y < IH; y++) for (let x = 0; x < IW; x++) {
+    const X = x * TS, Y = y * TS;
+    if (y <= 2 || x === 0 || x === IW - 1 || (y === IH - 1 && !(x === 9 || x === 10))) {
+      R(cabin ? "#4a3626" : d.hospital ? "#5b6a68" : d.police ? "#3a4560" : d.kind === "metro" ? "#3a4048" : "#4a3d34", X, Y, TS, TS);
+      if (cabin) for (let i = 0; i < 16; i += 4) R("rgba(0,0,0,.22)", X + i, Y, 1, TS); else { R(d.hospital ? "#4f5e5c" : d.police ? "#323b52" : d.kind === "metro" ? "#30353c" : "#43362d", X + 4, Y, 3, TS); R(d.hospital ? "#4f5e5c" : d.police ? "#323b52" : d.kind === "metro" ? "#30353c" : "#43362d", X + 11, Y, 3, TS); }
+      if (hh(x, y, 910) < 0.3) R("rgba(0,0,0,.22)", X + 2, Y + Math.floor(hh(x, y, 911) * 10), 5, 4);
+      if (y === 2) R("rgba(0,0,0,.35)", X, Y + 13, TS, 3);
+    } else {
+      R(d.hospital ? ((x + y) % 2 ? "#6c7b79" : "#657472") : d.police ? ((x + y) % 2 ? "#2f3848" : "#2b3340") : d.kind === "metro" ? ((x + y) % 2 ? "#2b3036" : "#272b30") : (x + y) % 2 ? "#3b2f27" : "#352a22", X, Y, TS, TS);
+      R("rgba(0,0,0,.25)", X, Y + 15, TS, 1);
+      for (let i = 0; i < 3; i++) R("rgba(0,0,0,.18)", X + Math.floor(hh(x, y, 920 + i) * 14), Y + Math.floor(hh(x, y, 930 + i) * 14), 2, 1);
+    }
+  }
+  R("#2a2018", 9 * TS, (IH - 1) * TS, 2 * TS, TS); R("#6a7a8a", 9 * TS + 2, (IH - 1) * TS + 4, 2 * TS - 4, 12);
+  const wx = 3 + Math.floor(r(5) * 10);
+  if (d.kind !== "metro") R("#161c22", wx * TS, 1 * TS, 3 * TS, 24); if (d.kind !== "metro") { R("#9fb2b8", wx * TS, 1 * TS + 2, 12, 2); R("#9fb2b8", wx * TS + 30, 1 * TS + 6, 14, 2); R("#9fb2b8", wx * TS + 18, 1 * TS + 18, 8, 2);
+  R("rgba(190,210,220,.12)", wx * TS - 6, 3 * TS, 3 * TS + 12, 4 * TS); R("rgba(190,210,220,.08)", wx * TS - 12, 7 * TS, 3 * TS + 24, 3 * TS); }
+  if (d.hospital) { R("#d9d9d0", 14 * TS, 1 * TS, 24, 24); R("#c0392b", 14 * TS + 9, 1 * TS + 3, 6, 18); R("#c0392b", 14 * TS + 3, 1 * TS + 9, 18, 6); R("#5a1a1a", 4 * TS, 8 * TS, 30, 16); R("#4a1414", 4 * TS + 6, 8 * TS + 6, 18, 8); for (let i = 0; i < 4; i++) R("#b9c4c2", (2 + i * 4) * TS, 3 * TS + 2, 2, 8); }
+  if (d.police) { R("#1f3b6a", 14 * TS, 1 * TS, 24, 24); R("#e0c040", 14 * TS + 10, 1 * TS + 4, 4, 16); R("#e0c040", 14 * TS + 4, 1 * TS + 9, 16, 6); for (let i = 0; i < 6; i++) R("#8a9098", 2 * TS + i * 8, 3 * TS - 2, 2, 12); R("#8a9098", 2 * TS, 3 * TS + 2, 48, 2); }
+  if (d.kind === "metro") {
+    R("#07090c", 6 * TS, 0, 8 * TS, 3 * TS); R("#0d1116", 6 * TS + 4, 4, 8 * TS - 8, 3 * TS - 4);
+    R("#5a5e60", 8 * TS + 2, 3 * TS, 3, 3 * TS); R("#5a5e60", 11 * TS + 10, 3 * TS, 3, 3 * TS); for (let i = 0; i < 6; i++) R("#3a2c20", 8 * TS - 4, 3 * TS + 4 + i * 8, 5 * TS - 8, 3);
+    R("#c8a030", 0, 6 * TS + 4, IW * TS, 2); R("#17407a", 2 * TS, 3 * TS + 2, 3 * TS, 12); R("#fff", 2 * TS + 4, 3 * TS + 5, 2, 6); R("#fff", 2 * TS + 10, 3 * TS + 5, 2, 6); R("#fff", 2 * TS + 6, 3 * TS + 5, 4, 2); R("#e0a33a", 3 * TS + 8, 3 * TS + 7, 18, 2);
+  }
+  R("rgba(255,255,255,.18)", 1 * TS + 2, 3 * TS, 2, 2); R("rgba(255,255,255,.18)", (IW - 2) * TS + 8, 3 * TS + 4, 5, 1);
+  if (hh(seed, 5, 940) < 0.35) { R("#5a1a1a", 6 * TS, 10 * TS, 26, 12); R("#4a1414", 6 * TS + 6, 10 * TS + 6, 18, 10); }
+  if (hh(seed, 6, 941) < 0.5) { R(GREENS_I[0], 1 * TS, 3 * TS, 10, 3 * TS); R(GREENS_I[1], 1 * TS + 4, 3 * TS + 6, 8, 20); }
+  if (r(9) < 0.55) { const rx = 5 * TS, ry = 6 * TS, rw = 8 * TS, rh = 5 * TS; R("#3a2626", rx, ry, rw, rh); R("#4e3331", rx + 4, ry + 4, rw - 8, rh - 8); R("#6a4a3a", rx + 8, ry + 8, rw - 16, 2); R("#6a4a3a", rx + 8, ry + rh - 10, rw - 16, 2); }
+  pieces.forEach(p => {
+    const X = 0, Y = 0, W = p.w * TS, H = p.h * TS;
+    const pcv = mk(W, H + 8), pg = pcv.getContext("2d");
+    const R2 = (col, x, y, w, h) => { pg.fillStyle = col; pg.fillRect(x, y, w, h); };
+    R("rgba(0,0,0,.4)", p.x * TS + 2, p.y * TS + H - 2, W, 5);
+    if (p.t === "shelf") { R2("#5a3f2a", X, Y, W, H + 4); R2("#3a281b", X, Y + 2, W, 2); R2("#3a281b", X, Y + 9, W, 2); for (let i = 0; i < W; i += 6) { R2(["#7a3a3a", "#3a5a7a", "#6a7a3a", "#8a6a3a"][(i / 6 | 0) % 4], X + i + 1, Y + 4, 4, 5); R2(["#3a5a7a", "#8a6a3a", "#7a3a3a"][(i / 6 | 0) % 3], X + i + 2, Y + 12, 3, 4); } }
+    else if (p.t === "wardrobe") { R2("#4a3320", X, Y, W, H + 6); R2("#3a281b", X + W / 2 - 1, Y, 2, H + 6); R2("#c9a24a", X + W / 2 - 4, Y + 8, 2, 2); R2("#c9a24a", X + W / 2 + 2, Y + 8, 2, 2); R2("rgba(255,255,255,.07)", X, Y, W, 2); }
+    else if (p.t === "table") { R2("#5a4430", X, Y, W, H); R2("#6b5236", X + 2, Y + 2, W - 4, H - 4); R2("#2a2018", X + 6, Y + 6, 8, 6); R2("#9a9a8a", X + 22, Y + 10, 4, 4); }
+    else if (p.t === "bed") { R2("#4a3320", X, Y, W, H); R2("#7a7a6a", X + 2, Y + 14, W - 4, H - 16); R2("#9a9a8a", X + 3, Y + 3, W - 6, 10); R2("#5a3a3a", X + 2, Y + H - 16, W - 4, 12); R2("#4a4a3a", X + 8, Y + 22, 10, 6); }
+    else if (p.t === "sofa") { R2("#5a3a3a", X, Y, W, H + 6); R2("#6a4a4a", X + 2, Y + 8, W - 4, H - 2); R2("#3a2424", X, Y, W, 5); R2("#2a1a1a", X + 14, Y + 10, 6, 4); R2("#8a7a6a", X + 30, Y + 12, 3, 3); }
+    g.drawImage(outlineCanvas(pcv, "#120d0a"), p.x * TS - 1, p.y * TS - 1);
+  });
+  const solidFn = (tx, ty) => tx < 0 || ty < 0 || tx >= IW || ty >= IH || sol[ty][tx] || pc[ty][tx];
+  return { canvas: c, pieces, solid: solidFn, kid };
+}
+const GREENS_I = ["#244d27", "#2f6a2f"];
+function getInterior(d) { const k = d.y * MW + d.x; if (!interiors.has(k)) interiors.set(k, buildInterior(d)); return interiors.get(k); }
+
+// Les infectés : beaucoup, des deux côtés du mur, et des gardiens près du laboratoire
+const spawns = [];
+(function placeMobs() {
+  const want = [[2, 57, 46], [62, MW - 3, 56]];
+  want.forEach(([x0, x1, n], zi) => {
+    let tries = 0, count = 0;
+    while (count < n && tries++ < 20000) {
+      const tx = x0 + Math.floor(hh(tries, 7 + zi, 77) * (x1 - x0)), ty = 2 + Math.floor(hh(7 + zi, tries, 78) * (MH - 4));
+      if (solidWorld(tx, ty) || Math.hypot(tx - 6, ty - 1) < 16) continue;
+      if (spawns.some(m => Math.hypot(m.x - tx, m.y - ty) < 5)) continue;
+      const kr = hh(tx, ty, 79); spawns.push({ x: tx, y: ty, kind: zi ? (kr < 0.2 ? "fast" : kr < 0.29 ? "scream" : kr < 0.37 ? "brute" : "normal") : (kr < 0.1 ? "fast" : kr < 0.15 ? "scream" : kr < 0.2 ? "brute" : "normal") }); count++;
+    }
+  });
+  let g = 0, tries = 0;
+  while (g < 6 && tries++ < 3000) {
+    const tx = 90 + Math.floor(hh(tries, 8, 81) * 20), ty = 52 + Math.floor(hh(8, tries, 82) * 18);
+    if (solidWorld(tx, ty) || Math.hypot(tx - LDX, ty - LDY) < 5 || spawns.some(m => Math.hypot(m.x - tx, m.y - ty) < 4)) continue;
+    spawns.push({ x: tx, y: ty, kind: ["brute", "fast", "scream"][g % 3] }); g++;
+  }
+})();
+// Métro : une entrée en ville, une sortie dans la forêt, reliées par un tunnel sous le mur (ajouté après le reste pour ne pas décaler les anciennes sauvegardes)
+(function placeMetro() {
+  const ok = (x0, y0, east) => {
+    for (let yy = y0 - 1; yy <= y0 + 3; yy++) {
+      if (yy < 2 || yy >= MH - 2 || byOf(yy) >= 7) return false;
+      for (let xx = x0 - 1; xx <= x0 + 4; xx++) {
+        if (east ? (xx < 65 || xx > 97 || (xx >= 94 && yy >= 52)) : (xx < 2 || xx > CITY_END - 2 || ((xx - 3) % 10 + 10) % 10 >= 8)) return false;
+        const t = map[yy][xx]; if (t !== GRASS && t !== TREE && !(!east && t === WALK)) return false;
+      }
+    }
+    return true;
+  };
+  const find = (tx, ty, east) => { let best = null, bd = 1e9; for (let y0 = 3; y0 < MH - 4; y0++) for (let x0 = 3; x0 < MW - 6; x0++) { const dd = Math.hypot(x0 - tx, y0 - ty); if (dd < bd && ok(x0, y0, east)) { bd = dd; best = [x0, y0]; } } return best; };
+  const A = find(38, 36, false), B = find(86, 34, true);
+  if (!A || !B) return;
+  const make = ([x0, y0], east) => {
+    for (let yy = y0 - 1; yy <= y0 + 3; yy++) for (let xx = x0 - 1; xx <= x0 + 4; xx++) map[yy][xx] = (yy >= y0 && yy <= y0 + 2 && xx >= x0 && xx <= x0 + 3) ? BUILD : (east ? GRASS : (map[yy][xx] === TREE ? GRASS : map[yy][xx]));
+    addDoor(x0 + 1, y0 + 2, "metro"); const d = doors.get((y0 + 2) * MW + x0 + 1); d.lockedBase = false; d.east = east;
+    for (let yy = y0 - 3; yy <= y0 + 4; yy++) for (let xx = x0 - 2; xx <= x0 + 5; xx++) if (xx >= 0 && yy >= 0 && xx < MW && yy < MH) paintTile(xx, yy);
+    const inR = (x, y) => x >= x0 - 1 && x <= x0 + 4 && y >= y0 - 1 && y <= y0 + 3;
+    const spot = (cx, cy, types) => { for (let r = 1; r < 16; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const x = cx + dx, y = cy + dy; if (x < 1 || y < 1 || x >= MW - 1 || y >= MH - 1 || inR(x, y) || solidWorld(x, y)) continue; if (types && !types.includes(map[y][x])) continue; return { x, y }; } return null; };
+    spawns.forEach(m => { if (inR(m.x, m.y)) { const f = spot(m.x, m.y + 5, null); if (f) { m.x = f.x; m.y = f.y; } } });
+    basePickups.forEach(q => { if (inR(q.x, q.y)) { const f = spot(q.x, q.y + 5, [ROAD, WALK, GRASS]); if (f) { q.x = f.x; q.y = f.y; } } });
+    return d;
+  };
+  const da = make(A, false), db = make(B, true); da.link = db; db.link = da;
+})();
+const MOB = { gender: 1, skinC: "#7d9477", hairC: "#2a2a22", topCC: "#4a4038", botCC: "#2a2a28", top: 0, bot: 0, style: 0, acc: 0, mob: 1 };
+const MOB_FAST = { gender: 1, skinC: "#9c7c68", hairC: "#3a1a14", topCC: "#6a2e2c", botCC: "#2a2226", top: 1, bot: 2, style: 4, acc: 0, mob: 2 };
+const MOB_SCREAM = { gender: 0, skinC: "#aab5a4", hairC: "#d8d4c8", topCC: "#4a3a4a", botCC: "#2a2a30", top: 1, bot: 2, style: 1, acc: 0, mob: 3 };
+const MOB_BRUTE = { gender: 1, skinC: "#6f7f6a", hairC: "#1c1a16", topCC: "#3a3028", botCC: "#222120", top: 4, bot: 1, style: 3, acc: 0, mob: 1, big: 1 };
+const MARC = { gender: 1, skin: 3, hair: 2, style: 0, top: 2, topc: 4, bot: 1, botc: 3, acc: 0 };
+const hpOf = k => Math.max(1, Math.round(KIND[k].hp * D.hpMul));
+const MOB_BY = { normal: MOB, fast: MOB_FAST, scream: MOB_SCREAM, brute: MOB_BRUTE };
+const KIND = { normal: { hp: 3, chase: 50, det: 1 }, fast: { hp: 2, chase: 56, det: 1.25 }, scream: { hp: 2, chase: 44, det: 1.1 }, brute: { hp: 8, chase: 36, det: 0.85 } };
+function drawMob(ctx, dir, fi, ox, oy, kind, e, now) {
+  const c = MOB_BY[kind] || MOB, chase = e && e.state === "chase";
+  if (e && e.stun > 0) oy += 1;
+  else if (e) oy += chase ? 0 : Math.round(Math.sin(now / 240 + e.seed) * 0.6);
+  if (kind === "brute") { ctx.fillStyle = "rgba(0,0,0,.4)"; ctx.fillRect(ox, oy + 14, 16, 3); const old = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false; ctx.drawImage(sprite(c, dir, fi), ox - 4, oy - 12, 23, 29); ctx.imageSmoothingEnabled = old; }
+  else drawChar(ctx, c, dir, fi, ox, oy);
+  if (!e) return;
+  const top = oy - (kind === "brute" ? 14 : 6);
+  if (kind === "scream" && chase) { ctx.fillStyle = "rgba(255,200,120," + (0.25 + 0.2 * Math.sin(now / 90)) + ")"; ctx.fillRect(ox - 3, oy - 1, 1, 8); ctx.fillRect(ox + 18, oy - 1, 1, 8); ctx.fillRect(ox - 5, oy + 1, 1, 4); ctx.fillRect(ox + 20, oy + 1, 1, 4); }
+  if (chase) { ctx.fillStyle = "#d9361f"; ctx.fillRect(ox + 7, top - 5, 2, 4); ctx.fillRect(ox + 7, top, 2, 2); }
+  else if (e.alert > 0) { ctx.fillStyle = "#e0a33a"; ctx.fillRect(ox + 7, top - 5, 2, 4); ctx.fillRect(ox + 7, top, 2, 2); }
+  const mx = hpOf(kind);
+  if (e.hp < mx && e.hp > 0) { const w = kind === "brute" ? 14 : 10, x0 = ox + 8 - w / 2; ctx.fillStyle = "rgba(0,0,0,.7)"; ctx.fillRect(x0 - 1, top - 8, w + 2, 3); ctx.fillStyle = "#b8321f"; ctx.fillRect(x0, top - 7, Math.max(1, Math.round(w * e.hp / mx)), 1); }
+}
+function drawItemIcon(ctx, k, x, y, now) {
+  const R = (c, a, b, w, h) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); };
+  R("rgba(0,0,0,.35)", 3, 12, 10, 2);
+  if (k === "conserve") { R("#8a7a3a", 5, 5, 6, 7); R("#c9a24a", 5, 6, 6, 5); R("#7a1f1f", 5, 7, 6, 2); }
+  else if (k === "eau") { R("#9ac0d8", 6, 3, 4, 2); R("#5aa0c8", 5, 5, 6, 8); R("rgba(255,255,255,.4)", 6, 6, 1, 5); }
+  else if (k === "corde") { R("#8a6a3a", 4, 6, 8, 6); R("#b99a62", 5, 7, 6, 4); R("#8a6a3a", 7, 8, 2, 2); }
+  else if (k === "carte") { R("#2a8a6a", 3, 5, 10, 7); R("#3fbf9a", 4, 6, 8, 5); R("#fff", 5, 7, 3, 2); }
+  else if (k === "radio") { R("#3a3f3f", 3, 5, 10, 8); R("#5a6060", 4, 6, 8, 6); R("#14100d", 5, 7, 3, 3); R("#c9a24a", 9, 8, 3, 1); R("#9a9a90", 11, 1, 1, 4); R("#9a9a90", 11, 1, 3, 1); }
+  else if (k === "antenne") { R("#9a9a90", 7, 1, 1, 12); R("#c8ced2", 5, 3, 5, 1); R("#c8ced2", 4, 6, 7, 1); R("#6a6e6e", 6, 13, 3, 2); }
+  else if (k === "batterie") { R("#2a2e2e", 4, 5, 8, 8); R("#c9a24a", 6, 3, 4, 2); R("#d9c56a", 5, 7, 6, 1); R("#d96a3a", 5, 10, 6, 1); }
+  else if (k === "fusible") { R("#c8ced2", 6, 3, 4, 10); R("#d9d9d0", 7, 4, 2, 8); R("#c8a030", 6, 2, 4, 1); R("#c8a030", 6, 13, 4, 1); }
+  else if (k === "bois") { R("#5a3a1a", 3, 8, 10, 4); R("#8a6a3a", 4, 8, 8, 1); R("#3a2412", 3, 11, 10, 1); R("#c9a070", 12, 9, 1, 2); R("#6a4a22", 5, 5, 8, 3); R("#8a6a3a", 6, 5, 6, 1); }
+  else if (k === "pieu") { R("#8a6a3a", 7, 2, 2, 11); R("#b08a5a", 7, 2, 1, 11); R("#d8c8a0", 7, 1, 2, 2); R("#5a3a1a", 8, 4, 1, 9); }
+  else if (k === "batte") { R("#8a6a3a", 7, 6, 3, 8); R("#b08a5a", 7, 6, 1, 8); R("#6a4a22", 6, 2, 5, 5); R("#c8ced2", 5, 3, 1, 1); R("#c8ced2", 11, 4, 1, 1); R("#c8ced2", 5, 5, 1, 1); R("#c8ced2", 11, 6, 1, 1); }
+  else if (k === "clous") { R("#8a8a82", 4, 4, 1, 8); R("#c8ced2", 3, 3, 3, 1); R("#8a8a82", 8, 5, 1, 7); R("#c8ced2", 7, 4, 3, 1); R("#8a8a82", 11, 3, 1, 8); R("#c8ced2", 10, 2, 3, 1); }
+  else if (k === "torche") { R("#6a4a22", 7, 6, 2, 8); R("#8a6a3a", 7, 6, 1, 8); R("#d9501a", 6, 2, 4, 5); R("#f2a51a", 7, 3, 2, 3); R("#fff0a0", 7, 4, 1, 1); }
+  else if (k === "piege") { R("#5a4a3a", 3, 8, 10, 5); R("#3a2c20", 3, 12, 10, 1); R("#c8ced2", 4, 4, 1, 4); R("#c8ced2", 7, 3, 1, 5); R("#c8ced2", 10, 4, 1, 4); R("#c8ced2", 5, 6, 1, 2); R("#c8ced2", 9, 6, 1, 2); }
+  else if (k === "trousse") { R("#e6e6de", 3, 5, 10, 8); R("#b9bab2", 3, 12, 10, 1); R("#c0392b", 7, 6, 2, 6); R("#c0392b", 5, 8, 6, 2); R("#8a8a82", 6, 3, 4, 2); }
+  else if (k === "matraque") { R("#2a2e38", 7, 2, 3, 11); R("#4a5060", 7, 2, 1, 11); R("#6a7a9a", 7, 11, 3, 3); }
+  else if (k === "hache") { R("#6a4a22", 7, 3, 2, 10); R("#9aa0a6", 4, 3, 5, 4); R("#c8ced2", 4, 3, 5, 1); R("#6a7076", 4, 6, 5, 1); }
+  else if (k === "cle") { R("#d9c56a", 5, 4, 4, 4); R("#14100d", 6, 5, 2, 2); R("#d9c56a", 7, 8, 2, 6); R("#d9c56a", 9, 11, 2, 1); R("#d9c56a", 9, 13, 2, 1); }
+  else if (k === "carnet") { R("#4a3220", 4, 4, 8, 9); R("#6a4a2a", 5, 4, 7, 9); R("#c9a24a", 6, 6, 4, 1); R("#c9a24a", 6, 8, 3, 1); }
+  else { R("#d9d9cf", 4, 4, 8, 9); R("#8a8a7a", 5, 6, 6, 1); R("#8a8a7a", 5, 8, 6, 1); R("#8a8a7a", 5, 10, 4, 1); }
+  ctx.fillStyle = "rgba(255,255,255," + (0.35 + 0.35 * Math.sin(now / 250 + x)) + ")"; ctx.fillRect(x + 12, y + 3, 1, 1);
+}
+
+/* ---------- Le jeu ---------- */
+const cv = $("screen"), g = cv.getContext("2d");
+let P, mobs = [], pickups = [], bag = [], looted = new Set(), inside = null, cur = null, saved = null, curSolid = solidWorld;
+let pages = new Set(), missions = {}, prog = { card: false, wall: false }, miaSkill = false, lureCd = 0, misOpen = false;
+let marc = null, marcWarn = 0, radioFixed = false;
+let mia = null, miaWarn = 0, talkOpen = false, talkLines = [], talkI = 0, talkDone = null;
+let saveT = 0, stepT = 0, hordeFlags = {}, D = null, lives = 1, invuln = 0;
+let run = false, stam = 100, sprinting = false, tired = false;
+let running = false, last = 0, msgT = 0, anim = 0, ended = false, bagOpen = false, bagSel = -1, crouch = false, hunger = 100, radio = false, firstIn = true;
+const keys = {}, stickVec = { x: 0, y: 0 };
+const PLAYER_SPEED = 58, WALK_SPEED = 18, CHASE_SPEED = 50, RUNNER_SPEED = 56; // difficulté dure
+
+function startGame() {
+  D = DIFFS[diff]; lives = D.lives; invuln = 0; weapon = null;
+  P = { x: 6 * TS, y: 1 * TS, dir: "down", moving: false };
+  mobs = spawns.map((s, i) => ({ x: s.x * TS, y: s.y * TS, dir: "down", state: "wander", t: 0, vx: 0, vy: 0, fi: 0, seed: i, kind: s.kind, hp: hpOf(s.kind), stun: 0, alert: 0, scr: 0 })).filter(m => hh(spawns[m.seed].x, spawns[m.seed].y, 123) < D.mobs);
+  hordeFlags = {}; stepT = 0; $("bSnd").textContent = "Son : " + (sfx.isMuted() ? "non" : "oui");
+  resetWorldEdits(); clock = 60; fires = []; traps = []; torchT = 0; corpses = []; idleT = 0; hitCd = 0; swing = null; kills = 0; branchTaken = new Set();
+  pickups = basePickups.map(p => ({ k: p.k, x: p.x, y: p.y, hidden: p.hidden, got: false }));
+  gatePos.forEach(([x, y]) => { if (map[y][x] !== GATE) { map[y][x] = GATE; paintTile(x, y); } });
+  for (const d of doors.values()) d.locked = d.lockedBase;
+  marc = null; radioFixed = false; if (svShown) { svShown = false; paintTile(svDoor.x - 1, svDoor.y); }
+  mia = null; missions = { main: "active" }; pages = new Set(); prog = { card: false, wall: false }; miaSkill = false; lureCd = 0; misOpen = false; $("mis").hidden = true; if (bearShown) { bearShown = false; paintTile(bearDoor.x - 1, bearDoor.y); }
+  talkOpen = false; $("talk").hidden = true; bag = []; looted = new Set(); inside = null; cur = null; curSolid = solidWorld; crouch = false; run = false; stam = 100; sprinting = false; tired = false; hunger = 100; radio = false; bagOpen = false; bagSel = -1;
+  $("bCrouch").setAttribute("aria-pressed", "false"); $("bRun").setAttribute("aria-pressed", "false"); $("bag").hidden = true; $("bMia").hidden = true;
+  $("hName").textContent = ch.name || "Toi"; $("end").hidden = true; ended = false;
+  say("Fouille la ville. Trouve des indices, puis atteins le laboratoire.", 5);
+  running = true; last = performance.now(); requestAnimationFrame(loop);
+}
+function say(t, sec) { $("msg").textContent = t; msgT = sec || 2.6; }
+
+function blockedAt(px, py) {
+  const l = px + 4, t = py + 10, r = px + 12, b = py + 15;
+  return curSolid(Math.floor(l / TS), Math.floor(t / TS)) || curSolid(Math.floor((r - .01) / TS), Math.floor(t / TS)) ||
+         curSolid(Math.floor(l / TS), Math.floor((b - .01) / TS)) || curSolid(Math.floor((r - .01) / TS), Math.floor((b - .01) / TS));
+}
+function moveEntity(e, dx, dy, solidFn) {
+  const saveSolid = curSolid; curSolid = solidFn || curSolid;
+  let hit = false;
+  if (!blockedAt(e.x + dx, e.y)) e.x += dx; else if (dx) hit = true;
+  if (!blockedAt(e.x, e.y + dy)) e.y += dy; else if (dy) hit = true;
+  curSolid = saveSolid;
+  return hit;
+}
+function end(win) {
+  ended = true; if (win) sfx.win(); else sfx.death();
+  if (win) { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  $("endT").textContent = win ? (mia ? "Fin : une famille réunie" : "Fin : le remède") : "Tu as été mordu";
+  $("endP").textContent = win ? "Infectés abattus : " + kills + ". Pages du carnet : " + pages.size + " sur 5. " + (missions.ours === "done" ? "L'ours de Mia est retrouvé. " : "") + "Nuits traversées : " + Math.floor(clock / DAY) + "." : "La bactérie se répand dans ton corps. Ton voyage s'arrête ici.";
+  $("again").textContent = win ? "Rejouer" : "Nouvelle partie"; $("loadSave").hidden = win || !hasSave();
+  $("end").hidden = false;
+}
+
+/* Sac à dos */
+const STACK = { conserve: 4, eau: 4, corde: 3, cle: 3, bois: 12, clous: 10, torche: 4, piege: 4, trousse: 3 };
+const bagMax = () => 20 + (marc ? 4 : 0);
+function addItem(k) {
+  const mx = STACK[k], st = mx && bag.find(i => i.k === k && i.n < mx);
+  if (st) st.n++;
+  else if (bag.length >= bagMax()) { say("Sac plein. Jette quelque chose.", 2.4); return false; }
+  else bag.push(mx ? { k, n: 1 } : WEAPONS[k] ? { k, dur: WEAPONS[k].dur } : { k });
+  if (k === "note3") { radio = true; if (!missions.pages) { missions.pages = "active"; say("Nouvelle mission : les pages du carnet du Dr Vasseur.", 4); } }
+  if (k === "carte") prog.card = true;
+  if (k === "radio") startRadioMission();
+  return true;
+}
+function countItem(k) { return bag.reduce((a, i) => a + (i.k === k ? (i.n || 1) : 0), 0); }
+function takeItem(k) { const i = bag.findIndex(q => q.k === k); if (i < 0) return false; if (bag[i].n > 1) bag[i].n--; else bag.splice(i, 1); return true; }
+function openBag(sel) { bagOpen = true; bagSel = sel === undefined ? -1 : sel; renderBag(); $("bag").hidden = false; }
+function closeBag() { bagOpen = false; $("bag").hidden = true; last = performance.now(); }
+function renderBag() {
+  $("bagCount").textContent = bag.length + " / " + bagMax();
+  const box = $("slots"); box.innerHTML = "";
+  for (let i = 0; i < bagMax(); i++) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "slot";
+    if (bag[i]) { b.textContent = ITEMS[bag[i].k].name + (bag[i].n > 1 ? " ×" + bag[i].n : "") + (bag[i].dur !== undefined ? " (" + bag[i].dur + ")" : "") + (WEAPONS[bag[i].k] && weapon === bag[i].k ? " ✓" : ""); b.style.borderLeftColor = ITEMS[bag[i].k].col; if (i === bagSel) b.classList.add("sel"); b.onclick = () => { bagSel = i; renderBag(); }; }
+    else { b.textContent = "vide"; b.className += " empty"; }
+    box.appendChild(b);
+  }
+  const it = bag[bagSel];
+  if (it) {
+    const def = ITEMS[it.k];
+    $("bagInfo").innerHTML = "<b>" + def.name + "</b><br>" + (def.text || def.desc);
+    const isW = !!WEAPONS[it.k]; $("bUse").hidden = !(def.use || isW); $("bUse").textContent = isW ? (weapon === it.k ? "Équipée" : "Équiper") : (def.use || ""); $("bDrop").hidden = false;
+  } else { $("bagInfo").textContent = bag.length ? "Touche un objet pour le voir." : "Ton sac est vide. Fouille les routes et les bâtiments."; $("bUse").hidden = true; $("bDrop").hidden = true; }
+  renderCraft();
+}
+$("bUse").onclick = () => {
+  const it = bag[bagSel]; if (!it) return;
+  if (WEAPONS[it.k]) { weapon = it.k; say("Tu prends en main : " + ITEMS[it.k].name, 1.8); renderBag(); return; }
+  if (it.k === "trousse") { if (lives >= D.lives) { say("Pas de blessure. Garde-la : si une morsure t'est fatale, elle te sauve.", 3); return; } lives++; sfx.eat(); say("Tu soignes ta blessure. Vies : " + lives + ".", 2.6); }
+  if (it.k === "conserve" || it.k === "eau") sfx.eat();
+  if (it.k === "conserve") { hunger = Math.min(100, hunger + 40); say("Tu manges. Ça fait du bien.", 2); }
+  else if (it.k === "eau") { hunger = Math.min(100, hunger + 15); say("Tu bois quelques gorgées.", 2); }
+  if (it.n > 1) it.n--; else { bag.splice(bagSel, 1); bagSel = -1; }
+  renderBag();
+};
+$("bDrop").onclick = () => { const it = bag[bagSel]; if (it) { if (it.n > 1) it.n--; else { bag.splice(bagSel, 1); bagSel = -1; } renderBag(); } };
+$("bClose").onclick = closeBag; $("bBag").onclick = () => (bagOpen ? closeBag() : openBag());
+
+function collectPage(i) {
+  if (!missions.pages) { missions.pages = "active"; }
+  const first = !pages.has(i); pages.add(i);
+  const all = pages.size === 5; if (all) missions.pages = "done";
+  showDialog("Carnet du Dr Vasseur", [PAGES[i - 1], all ? "Les cinq pages sont réunies. Le code du laboratoire est 1406. Il te faudra aussi la carte d'accès de la pharmacie. Mission terminée." : (first ? "Page " + pages.size + " sur 5 trouvée. Elle est conservée dans le menu Missions." : "Tu avais déjà cette page.")]);
+}
+function gainItem(k, isNote) {
+  if (k.startsWith("page")) { sfx.pickup(); collectPage(Number(k.slice(4))); return true; }
+  if (!addItem(k)) return false;
+  sfx.pickup();
+  if (isNote) { openBag(bag.length - 1); } else say("Tu trouves : " + ITEMS[k].name, 2.2);
+  return true;
+}
+
+// Boutons d'action : réagissent dès le toucher, même avec un autre doigt sur le joystick (iPad)
+function fastTap(id, fn) {
+  const el = $(id); let pd = false;
+  el.addEventListener("pointerdown", e => { if (e.pointerType === "mouse") return; pd = true; fn(); });
+  el.addEventListener("pointerup", () => setTimeout(() => { pd = false; }, 450));
+  el.addEventListener("click", () => { if (pd) { pd = false; return; } fn(); });
+}
+
+/* Sons : tout est fabriqué dans le navigateur, aucun fichier */
+const prox = (d, m) => Math.max(0, 1 - d / m);
+const sfx = (() => {
+  let ac = null, master = null, nbuf = null, windGain = null, muted = false, an = null;
+  const BOOST = 2.4;
+  try { muted = localStorage.getItem("brume-mute") === "1"; } catch (e) {}
+  const ok = () => !!ac;
+  function init() {
+    try {
+      if (ac) { if (ac.state === "suspended") ac.resume(); return; }
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      ac = new AC();
+      if (navigator.audioSession) { try { navigator.audioSession.type = "playback"; } catch (e) {} }   // iPad : jouer même avec le bouton silence
+      master = ac.createGain(); master.gain.value = muted ? 0 : 1;
+      const comp = ac.createDynamicsCompressor(); comp.threshold.value = -18; comp.knee.value = 20; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.25;
+      master.connect(comp); comp.connect(ac.destination);
+      an = ac.createAnalyser(); an.fftSize = 512; comp.connect(an);
+      ac.resume();
+      // déblocage iOS : un son silencieux immédiat et un petit lecteur audio muet en boucle
+      const b0 = ac.createBuffer(1, 1, 22050), s0 = ac.createBufferSource(); s0.buffer = b0; s0.connect(ac.destination); s0.start(0);
+      try {
+        const n = 800, wav = new Uint8Array(44 + n * 2), dv = new DataView(wav.buffer), w = (o, t) => { for (let i = 0; i < t.length; i++) wav[o + i] = t.charCodeAt(i); };
+        w(0, "RIFF"); dv.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true); dv.setUint32(24, 8000, true); dv.setUint32(28, 16000, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true); w(36, "data"); dv.setUint32(40, n * 2, true);
+        let bin = ""; for (let i = 0; i < wav.length; i++) bin += String.fromCharCode(wav[i]);
+        const au = document.createElement("audio"); au.src = "data:audio/wav;base64," + btoa(bin); au.loop = true; au.setAttribute("playsinline", ""); au.volume = 0.01;
+        const pr = au.play(); if (pr && pr.catch) pr.catch(() => {});
+      } catch (e) {}
+      const len = ac.sampleRate; nbuf = ac.createBuffer(1, len, ac.sampleRate); const d = nbuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const src = ac.createBufferSource(); src.buffer = nbuf; src.loop = true;
+      const fl = ac.createBiquadFilter(); fl.type = "lowpass"; fl.frequency.value = 380;
+      const lfo = ac.createOscillator(); lfo.frequency.value = 0.15; const lg = ac.createGain(); lg.gain.value = 120; lfo.connect(lg); lg.connect(fl.frequency); lfo.start();
+      windGain = ac.createGain(); windGain.gain.value = 0.03; src.connect(fl); fl.connect(windGain); windGain.connect(master); src.start();
+    } catch (e) { ac = null; }
+  }
+  function burst(dur, type, f0, f1, q, vol, delay) {
+    if (!ok() || vol <= 0.002) return;
+    try {
+      const t = ac.currentTime + (delay || 0), src = ac.createBufferSource(); src.buffer = nbuf; src.loop = true;
+      const fl = ac.createBiquadFilter(); fl.type = type; fl.frequency.setValueAtTime(f0, t); if (f1) fl.frequency.exponentialRampToValueAtTime(f1, t + dur); fl.Q.value = q || 1;
+      const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * BOOST, t + Math.min(0.015, dur / 3)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(fl); fl.connect(g); g.connect(master); src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.05);
+    } catch (e) {}
+  }
+  function tone(type, f0, f1, dur, vol, delay, vib, lp) {
+    if (!ok() || vol <= 0.002) return;
+    try {
+      const t = ac.currentTime + (delay || 0), o = ac.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+      const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * BOOST, t + Math.min(0.04, dur / 3)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      if (vib) { const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = vib[0]; lg.gain.value = vib[1]; l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(t + dur + 0.05); }
+      if (lp) { const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = lp; o.connect(f); f.connect(g); } else o.connect(g);
+      g.connect(master); o.start(t); o.stop(t + dur + 0.05);
+    } catch (e) {}
+  }
+  let lastGrowl = 0;
+  return {
+    init, isMuted: () => muted,
+    setMuted(m) { muted = m; try { localStorage.setItem("brume-mute", m ? "1" : "0"); } catch (e) {} if (master) master.gain.setTargetAtTime(m ? 0 : 1, ac.currentTime, 0.05); },
+    state: () => (ac ? ac.state : "none"),
+    level() { if (!an) return 0; const d = new Uint8Array(an.fftSize); an.getByteTimeDomainData(d); let m = 0; for (let i = 0; i < d.length; i++) m = Math.max(m, Math.abs(d[i] - 128)); return m; },
+    step(surf, k) { const v = 0.09 * k; if (surf === "grass") burst(0.09, "lowpass", 700, 300, 0.7, v * 0.8); else if (surf === "dirt") burst(0.08, "bandpass", 1100, 600, 1.2, v); else if (surf === "wood") { burst(0.06, "bandpass", 520, 380, 3, v * 1.1); tone("triangle", 120, 80, 0.06, v * 0.6); } else burst(0.05, "bandpass", 1900, 900, 1.5, v); },
+    door() { tone("sawtooth", 170, 310, 0.45, 0.05, 0, [14, 18], 900); burst(0.08, "lowpass", 500, 0, 1, 0.12); },
+    slam() { burst(0.22, "lowpass", 320, 120, 0.8, 0.4); tone("sine", 95, 45, 0.25, 0.32); },
+    locked() { burst(0.03, "highpass", 3200, 0, 1, 0.14); burst(0.03, "highpass", 2800, 0, 1, 0.12, 0.09); },
+    key() { tone("triangle", 1500, 900, 0.1, 0.1); burst(0.03, "highpass", 3000, 0, 1, 0.12, 0.08); },
+    gate() { tone("square", 240, 120, 0.7, 0.06, 0, [9, 14], 700); burst(0.2, "bandpass", 900, 400, 2, 0.1); },
+    climb() { burst(0.35, "bandpass", 1400, 500, 1, 0.14); burst(0.12, "lowpass", 400, 0, 1, 0.2, 0.4); },
+    growl(v, kind) { if (v <= 0.03 || !ok() || ac.currentTime - lastGrowl < 0.35) return; lastGrowl = ac.currentTime; if (kind === "brute") tone("sawtooth", 62, 44, 0.9, 0.2 * v, 0, [6, 6], 300); else tone("sawtooth", kind === "fast" ? 120 : 95, kind === "fast" ? 80 : 65, 0.8, 0.14 * v, 0, [9, 7], 520); },
+    roar(v) { if (v <= 0.03) return; tone("sawtooth", 150, 55, 1.1, 0.24 * v, 0, [11, 14], 800); burst(1.0, "bandpass", 500, 250, 1.2, 0.1 * v); },
+    scream(v) { if (v <= 0.03) return; tone("sawtooth", 520, 1500, 0.9, 0.2 * v, 0, [17, 90], 3500); tone("square", 780, 1900, 0.8, 0.05 * v, 0.05, [19, 60]); burst(0.9, "highpass", 2200, 0, 1, 0.08 * v); },
+    stomp(v) { if (v <= 0.03) return; tone("sine", 64, 40, 0.22, 0.3 * v); burst(0.1, "lowpass", 250, 0, 1, 0.2 * v); },
+    swing() { burst(0.14, "bandpass", 1600, 500, 1.2, 0.13); },
+    hit() { burst(0.12, "lowpass", 450, 200, 1, 0.35); tone("square", 130, 60, 0.1, 0.12); },
+    chop() { burst(0.07, "bandpass", 720, 500, 6, 0.3); burst(0.07, "bandpass", 640, 450, 6, 0.26, 0.16); tone("triangle", 210, 120, 0.12, 0.12); },
+    rustle() { burst(0.12, "bandpass", 2600, 1500, 0.8, 0.1); burst(0.1, "bandpass", 2300, 1400, 0.8, 0.08, 0.1); },
+    pickup() { tone("sine", 660, 880, 0.14, 0.12); tone("sine", 990, 1200, 0.16, 0.1, 0.1); },
+    craft() { for (let i = 0; i < 3; i++) { burst(0.06, "bandpass", 900, 600, 4, 0.22, i * 0.18); tone("triangle", 240, 150, 0.07, 0.1, i * 0.18); } },
+    ignite() { burst(0.5, "bandpass", 600, 2500, 0.8, 0.2); tone("sine", 120, 90, 0.4, 0.06); },
+    fire(v) { if (v <= 0.03) return; burst(0.03, "highpass", 3500, 0, 1, 0.12 * v); if (Math.random() < 0.4) burst(0.14, "bandpass", 180, 140, 2, 0.07 * v); },
+    stone() { burst(0.04, "bandpass", 2400, 0, 5, 0.2); burst(0.04, "bandpass", 1800, 0, 5, 0.16, 0.14); },
+    eat() { burst(0.05, "bandpass", 1800, 1000, 2, 0.15); burst(0.05, "bandpass", 1600, 900, 2, 0.13, 0.12); burst(0.05, "bandpass", 1500, 800, 2, 0.12, 0.24); },
+    death() { tone("sawtooth", 220, 38, 1.2, 0.3, 0, [5, 8], 700); burst(0.8, "lowpass", 300, 100, 1, 0.3); },
+    win() { [261.6, 329.6, 392, 523.3].forEach((f, i) => tone("sine", f, 0, 1.4, 0.13, i * 0.22)); },
+    radio() { burst(1.4, "bandpass", 1500, 2600, 0.7, 0.14); burst(1.2, "highpass", 3000, 0, 1, 0.05, 0.2); tone("sine", 800, 0, 0.18, 0.08, 1.5); tone("sine", 1000, 0, 0.18, 0.08, 1.75); },
+    ambient(night, indoors) { if (windGain) windGain.gain.setTargetAtTime((0.025 + 0.05 * night) * (indoors ? 0.3 : 1), ac.currentTime, 0.6); }
+  };
+})();
+["pointerdown", "touchend", "click", "keydown"].forEach(ev => addEventListener(ev, () => sfx.init(), { passive: true }));
+addEventListener("contextmenu", e => { if (e.target.closest && e.target.closest(".stage")) e.preventDefault(); });
+
+/* Sauvegarde de la partie (dans le navigateur de l'appareil) */
+const SAVE_KEY = "brume-save-v1";
+function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+function saveGame(quiet) {
+  if (!running || ended || !P) return false;
+  try {
+    const d = {
+      v: 2, ch, diff, lives, weapon, marc: !!marc, radioFixed, svShown,
+      P: inside ? { x: inside.x * TS, y: (inside.y + 1) * TS, dir: "down" } : { x: P.x, y: P.y, dir: P.dir },
+      mobs: mobs.filter(e => e.seed >= 0).map(e => [e.seed, Math.round(e.x), Math.round(e.y), e.hp]),
+      got: pickups.map((p, i) => (p.got ? i : -1)).filter(i => i >= 0),
+      bag, looted: [...looted], clock, hunger, stam, missions, pages: [...pages], prog, radio, miaSkill, lureCd, kills,
+      branch: [...branchTaken], mia: !!mia, bearShown,
+      fires: fires.map(f => [f.x, f.y, f.t]), traps: traps.map(t => [t.x, t.y]), torchT: Math.round(torchT),
+      edits: mapEdits.map(e => [e.x, e.y, e.old, map[e.y][e.x]]),
+      doorsAdded: addedDoors.map(k => { const dd = doors.get(k); return [dd.x, dd.y]; }),
+      gates: gatePos.filter(([x, y]) => map[y][x] !== GATE),
+      unlocked: [...doors.values()].filter(dd => dd.lockedBase && !dd.locked).map(dd => dd.y * MW + dd.x)
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(d));
+    if (!quiet) say("Partie sauvegardée.", 1.8);
+    return true;
+  } catch (e) { if (!quiet) say("Sauvegarde impossible sur cet appareil.", 2.6); return false; }
+}
+function loadGame() {
+  let d; try { d = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return false; }
+  if (!d || (d.v !== 1 && d.v !== 2)) return false;
+  ch = Object.assign(ch, d.ch); diff = typeof d.diff === "number" ? d.diff : 2;
+  startGame(); lives = typeof d.lives === "number" ? d.lives : D.lives; weapon = d.weapon || null;
+  P.x = d.P.x; P.y = d.P.y; P.dir = d.P.dir;
+  mobs = d.mobs.map(([seed, x, y, hp]) => ({ x, y, dir: "down", state: "wander", t: 0, vx: 0, vy: 0, fi: 0, seed, kind: spawns[seed].kind, hp, stun: 0, alert: 0, scr: 0 }));
+  d.got.forEach(i => { if (pickups[i]) pickups[i].got = true; });
+  bag = d.bag; looted = new Set(d.looted); clock = d.clock; hunger = d.hunger; stam = d.stam; missions = d.missions; pages = new Set(d.pages); prog = d.prog;
+  radio = d.radio; miaSkill = d.miaSkill; lureCd = d.lureCd || 0; kills = d.kills; branchTaken = new Set(d.branch);
+  d.edits.forEach(([x, y, old, cur]) => { mapEdits.push({ x, y, old }); map[y][x] = cur; paintTile(x, y); if (old === TREE && cur === GRASS) { wg.fillStyle = "#3b2a1b"; wg.fillRect(x * TS + 6, y * TS + 10, 4, 3); } });
+  d.doorsAdded.forEach(([x, y]) => {
+    const key = y * MW + x; doors.set(key, { x, y, kind: "cabane", locked: false, pharmacy: false, built: true, lockedBase: false }); addedDoors.push(key);
+    for (let yy = y - 3; yy <= y + 1; yy++) for (let xx = x - 2; xx <= x + 3; xx++) paintTile(xx, yy);
+  });
+  d.gates.forEach(([x, y]) => { map[y][x] = WALK; paintTile(x, y); });
+  d.unlocked.forEach(k => { const dd = doors.get(k); if (dd) dd.locked = false; });
+  fires = d.fires.map(([x, y, t]) => ({ x, y, t })); traps = (d.traps || []).map(([x, y]) => ({ x, y })); torchT = d.torchT || 0;
+  mia = d.mia ? { x: P.x - 10, y: P.y + 2, dir: "down", fi: 0 } : null;
+  bearShown = !!d.bearShown; if (bearShown) paintTile(bearDoor.x - 1, bearDoor.y);
+  radioFixed = !!d.radioFixed; svShown = !!d.svShown; if (svShown) paintTile(svDoor.x - 1, svDoor.y);
+  marc = d.marc ? { x: P.x + 12, y: P.y + 4, dir: "down", fi: 0 } : null;
+  say("Partie reprise.", 2.6);
+  return true;
+}
+
+/* Survie : bois, hache, feu, abri, nuit */
+const DAY = 420;
+let clock = 60, fires = [], mapEdits = [], addedDoors = [], branchTaken = new Set(), hitCd = 0, swing = null, kills = 0;
+let traps = [], torchT = 0, corpses = [], idleT = 0;
+// Météo : change chaque jour (0 = dégagé, 1 = pluie, 2 = brouillard)
+const WEATHER = [0, 0, 1, 0, 2, 0, 1, 2], WX_NAME = [" · Dégagé", " · Pluie", " · Brouillard"];
+const weather = () => WEATHER[Math.floor(clock / DAY) % 8];
+const nightF = () => { const ph = clock % DAY; return ph < 240 ? 0 : ph < 270 ? (ph - 240) / 30 : ph < 390 ? 1 : (DAY - ph) / 30; };
+function setTile(x, y, t) { mapEdits.push({ x, y, old: map[y][x] }); map[y][x] = t; paintTile(x, y); }
+function resetWorldEdits() {
+  for (let i = mapEdits.length - 1; i >= 0; i--) { const e = mapEdits[i]; map[e.y][e.x] = e.old; paintTile(e.x, e.y); }
+  mapEdits = []; addedDoors.forEach(k => { doors.delete(k); interiors.delete(k); }); addedDoors = [];
+}
+function noise(r, except) {
+  if (inside) return;
+  let any = false;
+  mobs.forEach(e => { if (e !== except && (e.state === "wander" || e.state === "hunt") && !e.lure && Math.hypot(e.x - P.x, e.y - P.y) < r) { e.state = "chase"; any = true; } });
+  if (any) say("Le bruit attire des infectés !", 2.2);
+}
+const WEAPONS = {
+  hache: { dmg: 2, cd: 0.5, reach: 28, stun: 0.8, kb: 16, dur: 16, short: "Hache" },
+  matraque: { dmg: 2, cd: 0.3, reach: 30, stun: 0.7, kb: 12, dur: 20, short: "Matraque" },
+  pieu: { dmg: 1, cd: 0.32, reach: 34, stun: 0.5, kb: 10, dur: 7, short: "Pieu" },
+  batte: { dmg: 3, cd: 0.8, reach: 26, stun: 1.1, kb: 22, dur: 12, short: "Batte" }
+};
+let weapon = null;
+function weaponItem() { let it = bag.find(i => i.k === weapon); if (!it) { it = bag.find(i => WEAPONS[i.k]); weapon = it ? it.k : null; } return it; }
+function wearWeapon(kind) {
+  const i = bag.findIndex(q => q.k === kind); if (i < 0) return;
+  bag[i].dur--; if (bag[i].dur <= 0) { bag.splice(i, 1); if (weapon === kind) weapon = null; say("Arme brisée : " + ITEMS[kind].name + ".", 2.6); }
+}
+function chop(x, y) {
+  let got = 0; for (let i = 0; i < 3; i++) if (addItem("bois")) got++;
+  if (!got) return;
+  setTile(x, y, GRASS); wg.fillStyle = "#3b2a1b"; wg.fillRect(x * TS + 6, y * TS + 10, 4, 3);
+  sfx.chop(); wearWeapon("hache"); say("Tu abats l'arbre : +" + got + " bois.", 2); noise(110);
+}
+function branches(x, y) { if (addItem("bois")) { branchTaken.add(y * MW + x); sfx.rustle(); say("Tu ramasses des branches : +1 bois.", 1.8); } }
+function craftWeapon(kind) {
+  closeBag();
+  const cost = { hache: { bois: 2, corde: 1 }, pieu: { bois: 1 }, batte: { bois: 3, corde: 1, clous: 3 } }[kind];
+  const freed = Object.keys(cost).some(k => { const it = bag.find(i => i.k === k); return it && (it.n || 1) <= cost[k]; });
+  if (bag.length >= bagMax() && !freed) { say("Sac plein. Fais de la place.", 2.2); return; }
+  Object.keys(cost).forEach(k => { for (let i = 0; i < cost[k]; i++) takeItem(k); });
+  bag.push({ k: kind, dur: WEAPONS[kind].dur }); weapon = kind; sfx.craft();
+  say("Tu fabriques : " + ITEMS[kind].name + " (en main). Bouton Frapper pour combattre.", 4);
+}
+function craftAxe() { craftWeapon("hache"); }
+function craftStack(kind, cost, msg) {
+  closeBag();
+  const freed = Object.keys(cost).some(k => { const it = bag.find(i => i.k === k); return it && (it.n || 1) <= cost[k]; });
+  const room = bag.some(i => i.k === kind && i.n < STACK[kind]);
+  if (bag.length >= bagMax() && !freed && !room) { say("Sac plein. Fais de la place.", 2.2); return; }
+  Object.keys(cost).forEach(k => { for (let i = 0; i < cost[k]; i++) takeItem(k); });
+  addItem(kind); sfx.craft(); say(msg, 3.6);
+}
+function lightTorch() {
+  if ((inside && inside.kind !== "metro") || torchT > 0) return;
+  if (!takeItem("torche")) return;
+  torchT = 100; sfx.ignite(); say("Tu allumes la torche. Elle repousse les infectés proches, mais elle se voit de loin.", 3.4);
+}
+function placeTrap() {
+  if (inside) { say("Pas à l'intérieur.", 1.6); return; }
+  if (traps.length >= 6) { say("6 pièges posés maximum. Attends qu'un infecté tombe dedans.", 2.6); return; }
+  if (!takeItem("piege")) return;
+  const off = { left: [-14, 0], right: [14, 0], up: [0, -12], down: [0, 14] }[P.dir];
+  let x = P.x + 8 + off[0], y = P.y + 12 + off[1];
+  if (solidWorld(Math.floor(x / TS), Math.floor(y / TS))) { x = P.x + 8; y = P.y + 12; }
+  traps.push({ x, y }); sfx.craft(); say("Piège posé. Garde tes distances, il te repère aussi : ne marche plus dessus.", 3);
+}
+function updateTraps() {
+  if (!traps.length) return;
+  traps = traps.filter(t => {
+    const e = mobs.find(m => m.stun <= 0 && Math.hypot(m.x + 8 - t.x, m.y + 12 - t.y) < 10);
+    if (!e) return true;
+    e.hp -= 2; e.stun = 2; sfx.hit();
+    if (e.hp <= 0) { kills++; say("Un infecté tombe dans ton piège (" + kills + ").", 2.2); } else say("Un infecté est pris au piège !", 2);
+    return false;
+  });
+  mobs.forEach(e => { if (e.hp <= 0) corpses.push({ x: e.x, y: e.y, t: 0, kind: e.kind, s: e.seed }); });
+  mobs = mobs.filter(e => e.hp > 0);
+}
+$("bMenu").onclick = () => { const m = $("menu"); m.hidden = !m.hidden; $("bMenu").setAttribute("aria-expanded", String(!m.hidden)); };
+$("menu").addEventListener("click", () => { $("menu").hidden = true; $("bMenu").setAttribute("aria-expanded", "false"); });
+fastTap("bTorch", lightTorch); fastTap("bTrap", placeTrap);
+function placeFire() {
+  closeBag();
+  if (inside) { say("Pas de feu à l'intérieur.", 2); return; }
+  const off = { left: [-14, 0], right: [14, 0], up: [0, -12], down: [0, 14] }[P.dir];
+  let x = P.x + 8 + off[0], y = P.y + 12 + off[1];
+  if (solidWorld(Math.floor(x / TS), Math.floor(y / TS))) { x = P.x + 8; y = P.y + 12; }
+  takeItem("bois"); takeItem("bois"); takeItem("bois");
+  sfx.ignite(); fires.push({ x, y, t: 220 }); say("Tu allumes un feu. Les infectés n'osent pas s'approcher.", 3.4);
+}
+function placeShelter() {
+  closeBag();
+  if (inside) { say("Pas ici.", 1.6); return; }
+  const tx = Math.floor((P.x + 8) / TS), ty = Math.floor((P.y + 13) / TS);
+  const can = (x0, y0) => {
+    if (x0 < 2 || y0 < 2 || x0 + 4 >= MW - 1 || y0 + 3 >= MH - 1) return false;
+    for (let yy = y0 - 1; yy <= y0 + 3; yy++) for (let xx = x0 - 1; xx <= x0 + 4; xx++) if (map[yy][xx] !== GRASS && map[yy][xx] !== TREE) return false;
+    return true;
+  };
+  for (let r = 2; r <= 9; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+    const x0 = tx + dx - 1, y0 = ty + dy - 2;
+    if (!can(x0, y0)) continue;
+    for (let i = 0; i < 10; i++) takeItem("bois"); takeItem("corde"); takeItem("corde");
+    for (let yy = y0 - 1; yy <= y0 + 3; yy++) for (let xx = x0 - 1; xx <= x0 + 4; xx++) {
+      const inside4 = yy >= y0 && yy <= y0 + 2 && xx >= x0 && xx <= x0 + 3;
+      if (inside4 || map[yy][xx] === TREE) { mapEdits.push({ x: xx, y: yy, old: map[yy][xx] }); map[yy][xx] = inside4 ? BUILD : GRASS; }
+    }
+    const key = (y0 + 2) * MW + x0 + 1;
+    doors.set(key, { x: x0 + 1, y: y0 + 2, kind: "cabane", locked: false, pharmacy: false, built: true, lockedBase: false }); addedDoors.push(key);
+    for (let yy = y0 - 1; yy <= y0 + 3; yy++) for (let xx = x0 - 1; xx <= x0 + 4; xx++) paintTile(xx, yy);
+    sfx.craft(); say("Tu dégages la place et tu construis un abri. Entre pour te cacher ou dormir la nuit.", 4.5);
+    return;
+  }
+  say("Pas la place ici (route, mur ou bâtiment). Va dans la forêt.", 3);
+}
+function rest() {
+  if (nightF() < 0.5) { say("Il fait encore jour. Tu n'as pas sommeil.", 2); return; }
+  clock = (Math.floor(clock / DAY) + 1) * DAY + 10; hunger = Math.max(0, hunger - 12); lives = Math.min(D.lives, lives + 1);
+  mobs.forEach(e => { if (e.state === "chase") e.state = "wander"; });
+  say("Tu dors un peu. Le jour se lève.", 3.5);
+}
+function attack() {
+  if (inside || ended || bagOpen || talkOpen || misOpen || !running) return;
+  const wi = weaponItem();
+  if (!wi) { say("Il te faut une arme : hache, pieu ou batte.", 1.8); return; }
+  const W = WEAPONS[wi.k];
+  if (hitCd > 0) return;
+  hitCd = W.cd; swing = { t: 0.18, dir: P.dir }; sfx.swing();
+  let tgt = null, bd = W.reach;
+  mobs.forEach(e => { const d = Math.hypot(e.x - P.x, e.y - P.y); if (d < bd) { bd = d; tgt = e; } });
+  if (!tgt) { say("Aucun infecté à portée. Approche-toi, puis touche Frapper.", 1.6); return; }
+  const big = tgt.kind === "brute", ang = Math.atan2(tgt.y - P.y, tgt.x - P.x), kb = big ? W.kb * 0.5 : W.kb;
+  moveEntity(tgt, Math.cos(ang) * kb, Math.sin(ang) * kb, solidWorld);
+  tgt.hp -= W.dmg; tgt.stun = big ? Math.min(W.stun, 0.55) : W.stun; tgt.state = "chase"; sfx.hit();
+  wearWeapon(wi.k);
+  if (tgt.hp <= 0) { corpses.push({ x: tgt.x, y: tgt.y, t: 0, kind: tgt.kind, s: tgt.seed }); mobs = mobs.filter(e => e !== tgt); kills++; say("Tu abats un infecté (" + kills + ").", 1.8); }
+  noise(90, tgt);
+}
+function renderCraft() {
+  const box = $("craft"); box.innerHTML = "";
+  [{ name: "Hache", info: "2 dégâts · 16 coups · vitesse moyenne", cost: "2 bois, 1 corde", ok: countItem("bois") >= 2 && countItem("corde") >= 1, run: () => craftWeapon("hache") },
+   { name: "Pieu", info: "1 dégât · 7 coups · très rapide", cost: "1 bois", ok: countItem("bois") >= 1, run: () => craftWeapon("pieu") },
+   { name: "Batte à clous", info: "3 dégâts · 12 coups · lente", cost: "3 bois, 1 corde, 3 clous", ok: countItem("bois") >= 3 && countItem("corde") >= 1 && countItem("clous") >= 3, run: () => craftWeapon("batte") },
+   { name: "Torche", info: "100 s de lumière, repousse les infectés proches", cost: "2 bois, 1 corde", ok: countItem("bois") >= 2 && countItem("corde") >= 1, run: () => craftStack("torche", { bois: 2, corde: 1 }, "Torche fabriquée. Bouton Torche pour l'allumer.") },
+   { name: "Piège à clous", info: "2 dégâts + cloue sur place, usage unique", cost: "2 bois, 2 clous", ok: countItem("bois") >= 2 && countItem("clous") >= 2, run: () => craftStack("piege", { bois: 2, clous: 2 }, "Piège fabriqué. Bouton Piège.") },
+   { name: "Feu", cost: "3 bois", ok: countItem("bois") >= 3, run: placeFire },
+   { name: "Abri", cost: "10 bois, 2 cordes", ok: countItem("bois") >= 10 && countItem("corde") >= 2, run: placeShelter }].concat(bag.some(i => i.k === "radio") ? [{ name: "Réparer la radio", cost: "radio + antenne, batterie, fusible", ok: ["antenne", "batterie", "fusible"].every(k => countItem(k) >= 1), run: repairRadio }] : []).forEach(r => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "ghost"; b.textContent = (r.name === "Réparer la radio" ? "" : "Fabriquer : ") + r.name + " (" + r.cost + ")" + (r.info ? "  >  " + r.info : "");
+    b.disabled = !r.ok; b.style.opacity = r.ok ? 1 : 0.4; b.onclick = r.run; box.appendChild(b);
+  });
+}
+fastTap("bHit", attack);
+
+/* Missions */
+function renderMissions() {
+  const has = k => bag.some(i => i.k === k);
+  const list = [{ t: "Atteindre le laboratoire", d: "Trouve le remède, tout à l'est, après la forêt.", steps: [["Récupérer la carte d'accès (pharmacie à la croix verte)", prog.card], ["Trouver le code (les 5 pages du carnet)", missions.pages === "done"], ["Savoir où est le labo (boussole)", radio], ["Franchir le grand mur", prog.wall], ["Ouvrir la porte du labo", false]] }];
+  if (missions.ours) list.push({ t: "L'ours de Mia", done: missions.ours === "done", d: "Mia a perdu son ours en peluche. Cherche l'immeuble au ruban rose.", steps: [["Fouiller l'immeuble au ruban rose", has("ours") || missions.ours === "done"], ["Rendre l'ours à Mia", missions.ours === "done"]] });
+  if (missions.radio) list.push({ t: "Le signal radio", done: missions.radio === "done", d: "Une radio cassée traîne en ville. Trouve trois pièces et répare-la.", steps: [["Antenne", radioFixed || bag.some(i => i.k === "antenne")], ["Batterie", radioFixed || bag.some(i => i.k === "batterie")], ["Fusible", radioFixed || bag.some(i => i.k === "fusible")], ["Réparer la radio (sac à dos)", radioFixed]] });
+  if (missions.survivor) list.push({ t: "Le survivant de la radio", done: missions.survivor === "done", d: "Marc est coincé dans l'immeuble au ruban bleu. Il lui faut de l'eau et de la nourriture.", steps: [["Trouver une clé pour l'immeuble au ruban bleu", !svDoor.locked || missions.survivor === "done"], ["Apporter une eau et une conserve", missions.survivor === "done"], ["Marc te rejoint", missions.survivor === "done"]] });
+  if (missions.pages) list.push({ t: "Le carnet du Dr Vasseur", done: missions.pages === "done", d: "Cinq pages du carnet sont cachées dans la ville et la forêt. Elles donnent le code obligatoire pour ouvrir le laboratoire.", steps: [1, 2, 3, 4, 5].map(i => ["Page " + i, pages.has(i)]), extra: [...pages].sort().map(i => PAGES[i - 1]) });
+  $("misList").innerHTML = list.map(m => "<div class=\"mission" + (m.done ? " done" : "") + "\"><b>" + m.t + (m.done ? " (terminée)" : "") + "</b><span>" + m.d + "</span><ul>" + m.steps.map(x => "<li" + (x[1] ? " class=\"ok\"" : "") + ">" + (x[1] ? "✓ " : "○ ") + x[0] + "</li>").join("") + "</ul>" + (m.extra || []).map(t => '<span class="pg">' + t + '</span>').join("") + "</div>").join("");
+}
+function openMis() { misOpen = true; renderMissions(); $("mis").hidden = false; }
+function closeMis() { misOpen = false; $("mis").hidden = true; last = performance.now(); }
+$("bMis").onclick = () => (misOpen ? closeMis() : openMis()); $("misClose").onclick = closeMis;
+function startRadioMission() {
+  if (missions.radio) return;
+  missions.radio = "active";
+  showDialog("Radio cassée", ["Une vieille radio à manivelle, le boîtier fendu. Elle crache un bruit blanc.", "Il lui manque trois pièces : une antenne, une batterie et un fusible.", "Quelqu'un, quelque part, l'écoutait peut-être. Cherche les pièces, puis répare-la depuis le sac à dos."], () => say("Nouvelle mission : le signal radio.", 4));
+}
+function repairRadio() {
+  closeBag();
+  ["radio", "antenne", "batterie", "fusible"].forEach(k => takeItem(k));
+  radioFixed = true; sfx.radio();
+  showDialog("Radio", [
+    "La radio crachote... puis une voix, faible, entrecoupée :",
+    "« Quelqu'un m'entend ? Je m'appelle Marc. Je suis coincé au sous-sol d'un immeuble, la jambe prise sous une étagère... »",
+    "« Je n'ai plus d'eau, plus rien à manger. La porte est verrouillée de l'extérieur. Il y a un ruban bleu à la fenêtre. S'il vous plaît... »",
+    "Le signal se coupe. La radio capte maintenant les abris sûrs des environs : une flèche s'affiche en haut."
+  ], () => { missions.radio = "done"; missions.survivor = "active"; svShown = true; paintTile(svDoor.x - 1, svDoor.y); say("Nouvelle mission : le survivant de la radio (immeuble au ruban bleu).", 5.5); });
+}
+function meetMarc() {
+  if (countItem("eau") < 1 || countItem("conserve") < 1) { showDialog("Survivant", ["Marc : « De l'eau... de la nourriture... n'importe quoi, je vous en supplie. »", "Il te faut une bouteille d'eau et une conserve."]); return; }
+  showDialog("Marc", [
+    "Marc : « Vous êtes venu... Merci. Doucement, ne faites pas de bruit. »",
+    "Vous soulevez l'étagère ensemble. Il boit, il mange, il reprend des couleurs.",
+    "Marc : « Je connais ces rues. Mon sac est solide, il y a de la place pour vous aussi. Je viens avec vous. »"
+  ], () => {
+    takeItem("eau"); takeItem("conserve");
+    marc = { x: P.x + 12, y: P.y + 4, dir: "down", fi: 0 }; missions.survivor = "done";
+    say("Marc te rejoint. Ton sac gagne 4 places.", 4.5);
+  });
+}
+function giveBear() {
+  showDialog("Mia", [
+    "Mon ours ! Tu l'as retrouvé ! Merci, merci !",
+    "Il s'appelle Capitaine. Papa me l'a offert avant de partir au laboratoire.",
+    "Je vais t'aider encore mieux. Si les infectés te poursuivent, je lancerai un caillou pour les attirer ailleurs.",
+    "Tiens, j'avais gardé une clé dans ma poche. Elle est pour toi."
+  ], () => {
+    takeItem("ours");
+    missions.ours = "done"; miaSkill = true; addItem("cle");
+    say("Mission terminée : l'ours de Mia. Nouveau : bouton Leurre pour distraire les infectés.", 5);
+  });
+}
+function lure(now) {
+  if (!mia || inside || !miaSkill) return;
+  if (lureCd > 0) { say("Mia n'a plus de cailloux. Attends un peu.", 1.8); return; }
+  const near = mobs.filter(e => Math.hypot(e.x - P.x, e.y - P.y) < 150);
+  if (!near.length) { say("Mia : « Il n'y a personne à distraire. »", 2); return; }
+  const cxm = near.reduce((a, e) => a + e.x, 0) / near.length, cym = near.reduce((a, e) => a + e.y, 0) / near.length;
+  let vx = cxm - P.x, vy = cym - P.y; const vm = Math.hypot(vx, vy) || 1;
+  const lx = cxm + vx / vm * 110, ly = cym + vy / vm * 110;
+  near.forEach(e => { e.state = e.horde ? "hunt" : "wander"; e.lure = { x: lx, y: ly, t: 7 }; });
+  lureCd = 35; sfx.stone(); say("Mia lance un caillou. Les infectés se tournent vers le bruit.", 3);
+}
+fastTap("bMia", () => lure());
+
+function finale() {
+  const withMia = !!mia, bear = missions.ours === "done";
+  const lines = [
+    "La porte du laboratoire s'ouvre dans un souffle froid. Les lumières se rallument une à une, dans un bourdonnement.",
+    "Au fond de la chambre froide, des flacons alignés sous une vitre givrée. Une étiquette : « Remède, lot 21. »"
+  ];
+  if (withMia) lines.push(
+    "Une silhouette se lève derrière un bureau couvert de notes. Un homme maigre, les yeux cernés.",
+    "Mia : « Papa ? »",
+    "Le Dr Vasseur : « Mia... Ma Mia. Tu es vivante. » Elle court dans ses bras" + (bear ? ", Capitaine serré contre elle." : "."),
+    "Le Dr Vasseur : « Merci d'avoir veillé sur elle. Sans toi, elle n'y serait jamais arrivée. »",
+    "Il remplit une seringue avec la dernière dose. « La bactérie recule. Les infectés pourront guérir, un à un. »"
+  ); else lines.push(
+    "Une silhouette se lève derrière un bureau couvert de notes : le Dr Vasseur, épuisé. « Quelqu'un est enfin arrivé... »",
+    "Il remplit une seringue avec la dernière dose. « Ma fille Mia s'est cachée en ville avec son ours. Si tu la croises, dis-lui que je l'attends. »",
+    "Le remède est entre tes mains. Mais quelque part en ville, une petite fille attend encore."
+  );
+  if (marc) lines.push("Marc serre la main du Dr Vasseur : « Ça valait le coup de tenir. »");
+  lines.push("Dehors, la Brume se lève doucement. Pour la première fois depuis longtemps, il y a de l'espoir.");
+  showDialog("Laboratoire", lines, () => end(true));
+}
+
+function scream(e) {
+  const d = Math.hypot(e.x - P.x, e.y - P.y);
+  sfx.scream(prox(d, 380)); say("Un hurleur appelle les autres !", 2.8);
+  e.stun = Math.max(e.stun, 0.9); e.scr = 9;
+  mobs.forEach(o => { if (o !== e && !o.lure && Math.hypot(o.x - e.x, o.y - e.y) < 300) { o.alert = 7; o.state = "chase"; } });
+}
+function hurt(e) {
+  if (invuln > 0 || ended) return;
+  lives--; let saved = false;
+  if (lives <= 0 && takeItem("trousse")) { lives = 1; saved = true; }
+  if (lives <= 0) { end(false); return; }
+  invuln = 2.5; sfx.hit(); sfx.growl(1, e.kind);
+  mobs.forEach(o => { if (Math.hypot(o.x - P.x, o.y - P.y) < 46) o.stun = Math.max(o.stun, 1.6); });
+  if (saved) { say("Mordu ! Ta trousse de soins te sauve de justesse.", 3.6); return; }
+  say("Tu es mordu ! Il te reste " + lives + (lives > 1 ? " chances." : " chance."), 3.2);
+}
+function spawnHorde() {
+  const px = inside ? inside.x * TS : P.x, py = inside ? (inside.y + 1) * TS : P.y;
+  const n = D.hordeBase + Math.min(D.hordeBase, Math.floor(clock / DAY)), a = Math.random() * 6.283;
+  let made = 0;
+  for (let tries = 0; tries < 80 && made < n; tries++) {
+    const ang = tries < 25 ? a + (Math.random() - 0.5) * 1.0 : Math.random() * 6.283, dist = 230 + Math.random() * 100;
+    const tx = Math.floor((px + Math.cos(ang) * dist) / TS), ty = Math.floor((py + Math.sin(ang) * dist) / TS);
+    if (tx < 2 || ty < 2 || tx >= MW - 2 || ty >= MH - 2 || solidWorld(tx, ty)) continue;
+    const kind = Math.random() < 0.25 ? "fast" : "normal";
+    mobs.push({ x: tx * TS, y: ty * TS, dir: "down", state: "hunt", t: 0, vx: 0, vy: 0, fi: 0, seed: -1, kind, hp: hpOf(kind), stun: 0, alert: 0, scr: 0, horde: true });
+    made++;
+  }
+  if (made) { say(marc ? "Marc : « Une meute approche, trouvons un abri ! »" : "Des hurlements au loin... une meute approche !", 4.5); sfx.roar(0.7); }
+}
+function hordeCheck(nf) {
+  const day = Math.floor(clock / DAY), ph = clock % DAY;
+  if (ph >= 275 && ph < 300 && !hordeFlags[day + "a"]) { hordeFlags[day + "a"] = true; spawnHorde(); }
+  if (D.second && ph >= 340 && ph < 370 && !hordeFlags[day + "b"]) { hordeFlags[day + "b"] = true; spawnHorde(); }
+  if (nf === 0 && mobs.some(e => e.horde)) {
+    mobs = mobs.filter(e => { if (!e.horde) return true; if (Math.hypot(e.x - P.x, e.y - P.y) > 220) return false; e.horde = false; e.state = "wander"; return true; });
+    say("Au lever du jour, la meute se disperse.", 3);
+  }
+}
+
+/* Tutoriel : 6 images illustrées */
+const TUTO = [
+  { t: "Te déplacer", d: "Pousse le joystick, en bas à gauche, pour marcher. Ton but : atteindre le laboratoire, tout à l'est, après la forêt. Une boussole t'aidera plus tard.", draw: g => {
+    tutoBg(g, 0, 0); spr2(g, gg => drawChar(gg, ch, "right", 1, 0, 0), 140, 78);
+    g.fillStyle = "rgba(230,235,223,.1)"; g.beginPath(); g.arc(50, 138, 28, 0, 6.283); g.fill(); g.strokeStyle = "rgba(230,235,223,.45)"; g.lineWidth = 2; g.stroke();
+    g.fillStyle = "rgba(224,163,58,.85)"; g.beginPath(); g.arc(60, 131, 12, 0, 6.283); g.fill();
+    g.strokeStyle = "#e0a33a"; g.lineWidth = 3; g.beginPath(); g.moveTo(190, 108); g.lineTo(240, 108); g.stroke(); g.fillStyle = "#e0a33a"; g.beginPath(); g.moveTo(246, 108); g.lineTo(236, 101); g.lineTo(236, 115); g.fill();
+    tutoText(g, "LABO  >  120 m      FAIM 100%", 8, 10, "#e6ebdf", 9); tutoText(g, "joystick", 50, 172, "#e0a33a", 9, "center");
+  } },
+  { t: "Les boutons", d: "Le bouton orange change selon ce que tu fais : ouvrir une porte, fouiller, ramasser, escalader. Courir et Baisser n'apparaissent que quand tu marches. Courir fait du bruit, Baisser te rend discret. Le bouton ☰ en haut à droite ouvre le sac, les missions et les réglages.", draw: g => {
+    g.fillStyle = "#101612"; g.fillRect(0, 0, 320, 180);
+    spr2(g, gg => drawChar(gg, ch, "down", 1, 0, 0), 24, 14); spr2(g, gg => { gg.save(); gg.translate(0, 8); gg.scale(1, 0.78); drawChar(gg, ch, "down", 0, 0, 0); gg.restore(); }, 24, 74);
+    tutoText(g, "Courir : bruyant", 64, 38, "#d8c8b0", 9); tutoText(g, "Se baisser : discret", 64, 96, "#d8c8b0", 9);
+    tutoText(g, "Frapper : avec une arme équipée", 12, 150, "#d8c8b0", 9);
+    [["OUVRIR LA PORTE", 1], ["COURIR", 0], ["BAISSER", 0], ["FRAPPER", 0], ["TORCHE / PIÈGE", 0], ["☰  SAC, MISSIONS...", 0]].forEach((b, i) => tutoBtn(g, 196, 6 + i * 27, 116, 22, b[0], b[1]));
+    tutoText(g, "bouton orange = action du moment", 254, 173, "#e0a33a", 7, "center");
+  } },
+  { t: "Fabriquer une arme", d: "Pour avoir une arme : 1) ramasse du bois (branches par terre, arbres), 2) ouvre le sac à dos et touche Fabriquer, 3) approche-toi d'un infecté et touche Frapper. Pour changer d'arme, touche-la dans le sac puis Équiper.", draw: g => {
+    tutoBg(g, 1100, 60); g.fillStyle = "rgba(8,12,10,.7)"; g.fillRect(0, 0, 320, 180);
+    const cards = [["hache", "HACHE", "Dégâts : 2", "Vitesse : moyenne", "16 coups", "2 bois + 1 corde", ""], ["pieu", "PIEU", "Dégâts : 1", "Vitesse : rapide", "7 coups", "1 bois", ""], ["batte", "BATTE À CLOUS", "Dégâts : 3", "Vitesse : lente", "12 coups", "3 bois + 1 corde", "+ 3 clous"]];
+    cards.forEach((c, i) => {
+      const x = 8 + i * 104; g.fillStyle = "rgba(24,33,27,.96)"; g.fillRect(x, 4, 96, 124); g.strokeStyle = "#2c3a2f"; g.strokeRect(x + 0.5, 4.5, 95, 123);
+      spr2(g, gg => drawItemIcon(gg, c[0], 0, 0, 0), x + 32, 8);
+      tutoText(g, c[1], x + 48, 50, "#e0a33a", 9, "center"); tutoText(g, c[2], x + 48, 64, "#e6ebdf", 8, "center"); tutoText(g, c[3], x + 48, 76, "#e6ebdf", 8, "center"); tutoText(g, c[4], x + 48, 88, "#e6ebdf", 8, "center");
+      tutoText(g, "Coût :", x + 48, 102, "#97a595", 8, "center"); tutoText(g, c[5], x + 48, 112, "#e6ebdf", 8, "center"); if (c[6]) tutoText(g, c[6], x + 48, 122, "#e6ebdf", 8, "center");
+    });
+    [["1  RAMASSE", "du bois"], ["2  SAC À DOS", "Fabriquer"], ["3  FRAPPER", "près d'un infecté"]].forEach((st, i) => {
+      const x = 8 + i * 104; g.fillStyle = i === 2 ? "#e0a33a" : "rgba(24,33,27,.96)"; g.fillRect(x, 136, 96, 38); g.strokeStyle = i === 2 ? "#e0a33a" : "#2c3a2f"; g.strokeRect(x + 0.5, 136.5, 95, 37);
+      tutoText(g, st[0], x + 48, 148, i === 2 ? "#1a1204" : "#e0a33a", 9, "center"); tutoText(g, st[1], x + 48, 162, i === 2 ? "#1a1204" : "#e6ebdf", 8, "center");
+    });
+  } },
+  { t: "Les infectés", d: "Ils te repèrent au bruit et à la vue. Reste accroupi et immobile pour passer inaperçu, ou cache-toi dans un bâtiment. Les hurleurs appellent les autres, les costauds sont lents mais solides. La nuit, des meutes rôdent.", draw: g => {
+    tutoBg(g, 160, 100);
+    g.setLineDash([5, 4]); g.lineWidth = 2; g.strokeStyle = "rgba(220,70,60,.9)"; g.beginPath(); g.arc(58, 104, 62, 0, 6.283); g.stroke(); g.strokeStyle = "rgba(90,220,130,.95)"; g.beginPath(); g.arc(58, 104, 20, 0, 6.283); g.stroke(); g.setLineDash([]);
+    spr2(g, gg => drawChar(gg, ch, "down", 0, 0, 0), 42, 88);
+    g.fillStyle = "rgba(8,12,10,.75)"; g.fillRect(0, 10, 200, 36); tutoText(g, "COURIR : repéré de loin", 12, 24, "#ff8a7a", 9); tutoText(g, "ACCROUPI : presque invisible", 12, 38, "#7ae0a0", 9);
+    [["normal", 140, "Infecté"], ["scream", 200, "Hurleur"], ["brute", 256, "Costaud"]].forEach(m => { spr2(g, gg => drawMob(gg, "left", 0, 0, 0, m[0]), m[1], 86); tutoText(g, m[2], m[1] + 16, 148, "#e6ebdf", 9, "center"); });
+  } },
+  { t: "Torche, pièges, lieux", d: "Torche (2 bois, 1 corde) : éclaire et repousse les infectés, mais te rend plus visible. Piège (2 bois, 2 clous) : cloue le premier infecté qui marche dessus. L'hôpital (croix rouge) cache des trousses de soins, plus ou moins selon la difficulté. Le métro (panneau M) passe sous le mur : il faut une torche. Le commissariat est verrouillé.", draw: g => {
+    tutoBg(g, 1100, 60); g.fillStyle = "rgba(8,12,10,.78)"; g.fillRect(0, 0, 320, 180);
+    [["torche", "TORCHE", "2 bois + 1 corde"], ["piege", "PIÈGE", "2 bois + 2 clous"], ["trousse", "TROUSSE", "à l'hôpital"], ["matraque", "MATRAQUE", "au commissariat"]].forEach((c, i) => {
+      const x = 6 + i * 78; g.fillStyle = "rgba(24,33,27,.96)"; g.fillRect(x, 6, 72, 92); g.strokeStyle = "#2c3a2f"; g.strokeRect(x + 0.5, 6.5, 71, 91);
+      spr2(g, gg => drawItemIcon(gg, c[0], 0, 0, 0), x + 20, 12); tutoText(g, c[1], x + 36, 58, "#e0a33a", 8, "center"); tutoText(g, c[2], x + 36, 74, "#e6ebdf", 7, "center");
+    });
+    g.fillStyle = "#17407a"; g.fillRect(8, 112, 36, 24); tutoText(g, "M", 26, 125, "#fff", 16, "center"); tutoText(g, "Métro : sous le mur, avec une torche", 56, 120, "#e6ebdf", 8); tutoText(g, "(30 s de lumière)", 56, 132, "#97a595", 8);
+    g.fillStyle = "#c0392b"; g.fillRect(14, 148, 24, 8); g.fillRect(22, 140, 8, 24); tutoText(g, "Hôpital : soigne tes morsures", 56, 152, "#e6ebdf", 8);
+  } },
+  { t: "Survivre", d: "Surveille ta faim et ton endurance. La nuit, dors près d'un feu (3 bois) ou dans un abri (10 bois + 2 cordes) : les meutes sont dangereuses. Le jeu se sauvegarde tout seul. Le menu Missions garde tes objectifs.", draw: g => {
+    g.fillStyle = "#101612"; g.fillRect(0, 0, 320, 180);
+    tutoText(g, "FAIM", 12, 20, "#e6ebdf", 9); g.fillStyle = "#2c3a2f"; g.fillRect(70, 14, 120, 12); g.fillStyle = "#e0a33a"; g.fillRect(70, 14, 84, 12);
+    tutoText(g, "ENDURANCE", 12, 44, "#e6ebdf", 9); g.fillStyle = "#2c3a2f"; g.fillRect(70, 38, 120, 12); g.fillStyle = "#6aa0d0"; g.fillRect(70, 38, 48, 12);
+    g.fillStyle = "#f2c94a"; g.beginPath(); g.arc(236, 24, 12, 0, 6.283); g.fill(); tutoText(g, "JOUR", 236, 48, "#e6ebdf", 9, "center");
+    g.fillStyle = "#cfd8e8"; g.beginPath(); g.arc(286, 24, 12, 0, 6.283); g.fill(); g.fillStyle = "#101612"; g.beginPath(); g.arc(291, 21, 11, 0, 6.283); g.fill(); tutoText(g, "NUIT", 286, 48, "#e6ebdf", 9, "center");
+    const lg = g.createRadialGradient(80, 126, 4, 80, 126, 50); lg.addColorStop(0, "rgba(255,170,70,.5)"); lg.addColorStop(1, "rgba(255,120,30,0)"); g.fillStyle = lg; g.fillRect(20, 76, 120, 100);
+    g.fillStyle = "#3b2a1b"; g.fillRect(70, 140, 20, 5); g.fillStyle = "#d9501a"; g.fillRect(72, 118, 16, 22); g.fillStyle = "#f2a51a"; g.fillRect(76, 126, 8, 14);
+    spr2(g, gg => drawChar(gg, ch, "right", 0, 0, 0), 106, 112); tutoText(g, "Dors près d'un feu", 78, 156, "#f2a51a", 9, "center"); tutoText(g, "Feu : 3 bois   |   Abri : 10 bois + 2 cordes", 160, 174, "#e6ebdf", 8, "center");
+    g.fillStyle = "#18211b"; g.fillRect(190, 78, 120, 78); g.strokeStyle = "#2c3a2f"; g.strokeRect(190.5, 78.5, 119, 77);
+    tutoText(g, "MISSIONS", 200, 92, "#e0a33a", 9); tutoText(g, "v  Trouver un indice", 200, 112, "#e6ebdf", 8); tutoText(g, "o  Carte d'accès", 200, 128, "#97a595", 8); tutoText(g, "o  Atteindre le labo", 200, 144, "#97a595", 8);
+  } }
+];
+let tutoI = 0;
+const tutoSeen = () => { try { return localStorage.getItem("brume-tuto-5") === "1"; } catch (e) { return false; } };
+function tutoBg(g, sx, sy) {
+  g.imageSmoothingEnabled = false; g.drawImage(world, sx, sy, 320, 180, 0, 0, 320, 180);
+  const gr = g.createRadialGradient(160, 90, 30, 160, 90, 230); gr.addColorStop(0, "rgba(6,12,9,0)"); gr.addColorStop(1, "rgba(3,6,5,.7)"); g.fillStyle = gr; g.fillRect(0, 0, 320, 180);
+}
+function tutoText(g, txt, x, y, col, size, align) { g.font = "bold " + (size || 10) + "px monospace"; g.fillStyle = col || "#e6ebdf"; g.textAlign = align || "left"; g.textBaseline = "middle"; g.fillText(txt, x, y); }
+function tutoBtn(g, x, y, w, h, label, hot) {
+  g.fillStyle = hot ? "#e0a33a" : "rgba(24,33,27,.95)"; g.fillRect(x, y, w, h); g.strokeStyle = hot ? "#e0a33a" : "#2c3a2f"; g.lineWidth = 1; g.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  tutoText(g, label, x + w / 2, y + h / 2 + 1, hot ? "#1a1204" : "#e6ebdf", 9, "center");
+}
+function spr2(g, fn, x, y) { g.save(); g.imageSmoothingEnabled = false; g.translate(x, y); g.scale(2, 2); fn(g); g.restore(); }
+function showTuto(i) {
+  tutoI = i; talkOpen = true;
+  const g = $("tutoCv").getContext("2d"); g.setLineDash([]); g.lineWidth = 1; g.clearRect(0, 0, 320, 180);
+  TUTO[i].draw(g);
+  $("tutoT").textContent = (i + 1) + " / " + TUTO.length + "  " + TUTO[i].t; $("tutoD").textContent = TUTO[i].d;
+  $("tutoDots").innerHTML = TUTO.map((_, k) => "<i" + (k === i ? ' class="on"' : "") + "></i>").join("");
+  $("tutoPrev").style.visibility = i === 0 ? "hidden" : "visible"; $("tutoNext").textContent = i === TUTO.length - 1 ? "Jouer" : "Suivant";
+  $("tuto").hidden = false;
+}
+function closeTuto() { $("tuto").hidden = true; talkOpen = false; last = performance.now(); try { localStorage.setItem("brume-tuto-5", "1"); } catch (e) {} }
+$("tutoNext").onclick = () => { if (tutoI >= TUTO.length - 1) closeTuto(); else showTuto(tutoI + 1); };
+$("tutoPrev").onclick = () => { if (tutoI > 0) showTuto(tutoI - 1); };
+$("tutoSkip").onclick = closeTuto;
+$("bHelp").onclick = () => showTuto(0);
+$("tutoShow").onclick = () => showTuto(0);
+document.body.appendChild($("tuto"));
+
+/* Dialogues */
+function showDialog(who, lines, done) {
+  talkOpen = true; talkLines = lines; talkI = 0; talkDone = done;
+  $("talkWho").textContent = who; $("talkText").textContent = lines[0]; $("talkNext").textContent = lines.length > 1 ? "Suite" : "Fermer"; $("talk").hidden = false;
+}
+$("talkNext").onclick = () => {
+  talkI++;
+  if (talkI >= talkLines.length) { talkOpen = false; $("talk").hidden = true; last = performance.now(); if (talkDone) talkDone(); return; }
+  $("talkText").textContent = talkLines[talkI]; $("talkNext").textContent = talkI === talkLines.length - 1 ? "Fermer" : "Suite";
+};
+function meetMia() {
+  showDialog("Petite fille", [
+    "Chut ! Ne crie pas... Tu n'as pas de morsure ? Montre tes bras.",
+    "D'accord, tu es comme moi. Je m'appelle Mia. Je me cache ici depuis trois jours.",
+    "Mon papa travaillait au laboratoire, à l'est. Il disait que le remède était presque prêt.",
+    "Je connais la ville. Je peux te prévenir quand ils approchent, et je repère les objets cachés par terre.",
+    "S'il te plaît, ne me laisse pas toute seule. Je viens avec toi. Tiens, j'ai trouvé cette clé."
+  ], () => {
+    mia = { x: P.x - 12, y: P.y + 2, dir: "down", fi: 0 }; radio = true;
+    const ok = addItem("cle");
+    missions.ours = "active"; bearShown = true; paintTile(bearDoor.x - 1, bearDoor.y);
+    say((ok ? "Mia te suit et te donne une clé. " : "Mia te suit. ") + "Nouvelle mission : l'ours de Mia (immeuble au ruban rose).", 5.5);
+  });
+}
+
+/* Actions du joueur */
+function enter(d) {
+  sfx.door(); setTimeout(() => sfx.slam(), 380);
+  inside = d; cur = getInterior(d); saved = { x: P.x, y: P.y };
+  curSolid = cur.solid; P.x = 9 * TS + 8; P.y = 11 * TS; P.dir = "up";
+  mobs.forEach(e => { if (e.state === "chase") { e.state = "wander"; e.t = 0; } });
+  say(d.kind === "metro" ? "Station de métro abandonnée. Le tunnel passe sous le mur." : d.police ? "Le commissariat. Des casiers et des bureaux." : d.hospital ? "Hôpital désert. Fouille les armoires." : d.sv && !marc && missions.survivor === "active" ? "Une voix faible, dans le noir : « Par ici... »" : d.mia && !mia ? "Tu entends un petit bruit, derrière un meuble..." : (firstIn ? "Tu es à l'abri. Les infectés ne peuvent pas ouvrir les portes." : "Tu refermes la porte derrière toi."), 3.5); firstIn = false;
+}
+function metroCross() {
+  const d = inside, o = d.link; if (!o) return;
+  if (torchT < 30) { say(torchT > 0 ? "Ta torche va s'éteindre. Il en faut 30 s." : "Trop noir. Allume une torche (30 s de lumière).", 3.8); return; }
+  torchT -= 30; hunger = Math.max(0, hunger - 6); sfx.door();
+  inside = null; cur = null; curSolid = solidWorld; P.x = o.x * TS; P.y = (o.y + 1) * TS; P.dir = "down";
+  if (mia) { mia.x = P.x - 10; mia.y = P.y + 2; }
+  say(o.east ? "Tu ressors dans la forêt, de l'autre côté du mur." : "Tu ressors en ville.", 4.5);
+}
+function leave() {
+  sfx.door(); setTimeout(() => sfx.slam(), 380);
+  const d = inside; inside = null; cur = null; curSolid = solidWorld;
+  P.x = d.x * TS; P.y = (d.y + 1) * TS; P.dir = "down";
+  if (mia) { mia.x = P.x - 10; mia.y = P.y + 2; }
+}
+function contextAction() {
+  if (ended || bagOpen || talkOpen || misOpen) return null;
+  const fx = P.x + 8, fy = P.y + 13;
+  const bearBack = mia && missions.ours === "active" && bag.some(i => i.k === "ours") && Math.hypot(mia.x - P.x, mia.y - P.y) < 40;
+  if (inside) {
+    if (inside.mia && !mia && cur.kid && Math.hypot(fx - (cur.kid.x + 8), fy - (cur.kid.y + 15)) < 26) return { label: "Parler à la petite fille", run: meetMia };
+    if (inside.sv && !marc && missions.survivor === "active" && cur.kid && Math.hypot(fx - (cur.kid.x + 8), fy - (cur.kid.y + 15)) < 28) return { label: "Aider le survivant", run: meetMarc };
+    if (fy > 13 * TS + 6 && fx > 8 * TS && fx < 12 * TS) return { label: "Sortir", run: leave };
+    if (inside.kind === "metro" && inside.link && fy < 6 * TS && fx > 6 * TS && fx < 14 * TS) return { label: "Traverser le tunnel", run: metroCross };
+    if (bearBack) return { label: "Rendre l'ours à Mia", run: giveBear };
+    if (inside.built && nightF() > 0.5) return { label: "Se reposer", run: rest };
+    for (let i = 0; i < cur.pieces.length; i++) {
+      const p = cur.pieces[i];
+      if (p.search && fx > p.x * TS - 8 && fx < (p.x + p.w) * TS + 8 && fy > p.y * TS - 4 && fy < (p.y + p.h) * TS + 16) {
+        const key = inside.x + "," + inside.y + "," + i;
+        return { label: looted.has(key) ? "Déjà fouillé" : "Fouiller", run: () => {
+          if (looted.has(key)) { say("Tu as déjà fouillé ici.", 1.6); return; }
+          const loot = p.loot === "trousse" && p.kit >= D.kits ? p.alt : p.loot;
+          if (!loot) { looted.add(key); sfx.rustle(); say("Rien d'utile ici.", 1.8); return; }
+          if (gainItem(loot, loot.startsWith("note"))) { looted.add(key); if (loot === "carte") say("Tu trouves la carte d'accès du laboratoire !", 3.5); }
+        } };
+      }
+    }
+    return null;
+  }
+  const cands = [];
+  if (bearBack) cands.push({ d: -200, label: "Rendre l'ours à Mia", run: giveBear });
+  const dl = Math.hypot(fx - (LDX + 1) * TS, fy - (LDY + 1) * TS);
+  if (dl < 26) cands.push({ d: dl - 100, label: "Ouvrir le labo", run: () => {
+    const card = bag.some(i => i.k === "carte"), code = missions.pages === "done";
+    if (card && code) finale();
+    else say(!card && !code ? "Il faut la carte d'accès ET le code. Cherche la pharmacie et les pages du carnet." : !card ? "Le code est bon, mais il manque la carte d'accès (pharmacie à la croix verte)." : "La carte est reconnue, mais il faut aussi le code. Trouve les 5 pages du carnet.", 4.2);
+  } });
+  for (const p of pickups) {
+    const d = Math.hypot(fx - (p.x * TS + 8), fy - (p.y * TS + 10));
+    if (!p.got && d < (p.hidden ? 13 : 15)) cands.push({ d, label: p.hidden ? "Fouiller" : "Ramasser", run: () => { if (gainItem(p.k, p.k.startsWith("note"))) p.got = true; } });
+  }
+  for (const s of spots) {
+    const d = Math.hypot(fx - (s.x * TS + 8), fy - (s.y * TS + 8));
+    if (d < 19) {
+      const key = "s," + s.x + "," + s.y;
+      cands.push({ d, label: looted.has(key) ? "Déjà fouillé" : "Fouiller", run: () => {
+        if (looted.has(key)) { say("Tu as déjà fouillé ici.", 1.6); return; }
+        if (!s.k) { looted.add(key); sfx.rustle(); say("Rien d'utile ici.", 1.8); return; }
+        if (gainItem(s.k, false)) looted.add(key);
+      } });
+    }
+  }
+  for (const d of doors.values()) {
+    const dd = Math.hypot(fx - (d.x * TS + 8), fy - (d.y * TS + 16));
+    if (dd >= 18) continue;
+    if (!d.locked) cands.push({ d: dd - 50, label: "Ouvrir la porte", run: () => enter(d) });
+    else cands.push({ d: dd - 50, label: bag.some(i => i.k === "cle") ? "Utiliser une clé" : "Porte verrouillée", run: () => {
+      const i = bag.findIndex(q => q.k === "cle");
+      if (i < 0) { sfx.locked(); say("La porte est verrouillée. Il faudrait une clé.", 2.6); return; }
+      sfx.key(); takeItem("cle"); d.locked = false; say("La clé tourne. La porte s'ouvre.", 2); enter(d);
+    } });
+  }
+  // feux : ajouter du bois, se reposer la nuit
+  for (const f of fires) {
+    const dd = Math.hypot(fx - f.x, fy - f.y);
+    if (dd >= 30) continue;
+    const wood = bag.some(i => i.k === "bois");
+    if (wood && (f.t < 80 || nightF() < 0.5)) cands.push({ d: dd - 60, label: "Ajouter du bois", run: () => { if (takeItem("bois")) { f.t = Math.min(400, f.t + 100); say("Le feu repart.", 1.6); } } });
+    else if (nightF() > 0.5) cands.push({ d: dd - 60, label: "Se reposer", run: rest });
+  }
+  // arbres : branches (sans hache) ou abattre (avec hache)
+  const hasAxe = bag.some(i => i.k === "hache"), ftx = Math.floor(fx / TS), fty = Math.floor(fy / TS);
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const x = ftx + dx, y = fty + dy;
+    if (x < 1 || y < 1 || x >= MW - 1 || y >= MH - 1 || map[y][x] !== TREE) continue;
+    const dd = Math.hypot(fx - (x * TS + 8), fy - (y * TS + 8));
+    if (dd >= 20) continue;
+    if (hasAxe) cands.push({ d: dd + 8, label: "Couper l'arbre", run: () => chop(x, y) });
+    else if (!branchTaken.has(y * MW + x)) cands.push({ d: dd + 8, label: "Ramasser des branches", run: () => branches(x, y) });
+  }
+  // mur de quarantaine : portail (clé) ou escalade (corde)
+  const tx = Math.floor(fx / TS), ty = Math.floor(fy / TS);
+  for (const dx of [-1, 1]) {
+    const wt = map[ty] && map[ty][tx + dx], dw = Math.abs(fx - ((tx + dx) * TS + 8));
+    if ((wt !== WALL && wt !== GATE) || dw >= 20) continue;
+    if (wt === GATE) cands.push({ d: dw - 50, label: bag.some(i => i.k === "cle") ? "Ouvrir le portail" : "Portail verrouillé", run: () => {
+      const i = bag.findIndex(q => q.k === "cle");
+      if (i < 0) { sfx.locked(); say("Portail verrouillé. Il faut une clé, ou une corde pour escalader le mur.", 3.2); return; }
+      takeItem("cle");
+      const y0 = byOf(ty) === 8 ? ty - 1 : ty;
+      [y0, y0 + 1].forEach(yy => { map[yy][tx + dx] = WALK; paintTile(tx + dx, yy); });
+      sfx.gate(); say("Le portail s'ouvre en grinçant.", 2.4);
+    } });
+    else cands.push({ d: dw - 50, label: bag.some(i => i.k === "corde") ? "Escalader (corde)" : "Mur trop haut", run: () => {
+      const i = bag.findIndex(q => q.k === "corde");
+      if (i < 0) { say("Trop haut. Il te faudrait une corde.", 2.6); return; }
+      let dest = null;
+      for (const dy of [0, 1, -1, 2, -2]) if (!solidWorld(tx + dx * 2, ty + dy)) { dest = [tx + dx * 2, ty + dy]; break; }
+      if (!dest) { say("Pas de place de l'autre côté.", 2); return; }
+      takeItem("corde"); P.x = dest[0] * TS; P.y = dest[1] * TS; P.dir = dx > 0 ? "right" : "left";
+      mobs.forEach(e => { if (e.state === "chase") { e.state = "wander"; e.t = 0; } });
+      if (mia) { mia.x = P.x - 10; mia.y = P.y + 2; }
+      sfx.climb(); say(mia ? "Tu escalades le mur. Mia s'accroche à la corde et te suit." : "Tu fixes la corde et tu escalades le mur.", 2.8);
+    } });
+  }
+  cands.sort((p, q) => p.d - q.d);
+  return cands[0] || null;
+}
+let actNow = null;
+function doAction() { if (actNow) actNow.run(); }
+
+function loop(now) {
+  if (!running) return;
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!ended && !bagOpen && !talkOpen && !misOpen) {
+    saveT += dt; if (saveT > 15) { saveT = 0; saveGame(true); }
+    if (lureCd > 0) lureCd = Math.max(0, lureCd - dt);
+    invuln = Math.max(0, invuln - dt);
+    clock += dt; hitCd = Math.max(0, hitCd - dt); if (swing) { swing.t -= dt; if (swing.t <= 0) swing = null; }
+    idleT = P.moving ? 0 : idleT + dt; $("bMove").hidden = idleT > 1.2 && !crouch && !run && !inside;
+    corpses.forEach(c => { c.t += dt; }); if (corpses.length && corpses[0].t > 45) corpses = corpses.filter(c => c.t < 45);
+    const wxN = weather(), tb0 = torchT; torchT = Math.max(0, torchT - dt); if (tb0 > 0 && torchT === 0) say("Ta torche s'éteint.", 2);
+    const lights = torchT > 0 && !inside ? fires.concat([{ x: P.x + 8, y: P.y + 12, torch: true }]) : fires;
+    fires.forEach(f => { f.t -= dt * (wxN === 1 && !f.torch ? 1.8 : 1); const fd = Math.hypot(f.x - P.x, f.y - P.y); if (fd < 240 && Math.random() < dt * 7) sfx.fire(prox(fd, 240)); }); if (fires.some(f => f.t <= 0)) { fires = fires.filter(f => f.t > 0); say("Un feu s'est éteint.", 2); }
+    if (!inside && P.x > (WALL_X + 1) * TS) prog.wall = true;
+    hunger = Math.max(0, hunger - dt * 100 / 300 * (1 + 0.4 * nightF()) * D.hunger);
+    let vx = (keys.ArrowRight || keys.d ? 1 : 0) - (keys.ArrowLeft || keys.q || keys.a ? 1 : 0) + stickVec.x;
+    let vy = (keys.ArrowDown || keys.s ? 1 : 0) - (keys.ArrowUp || keys.z || keys.w ? 1 : 0) + stickVec.y;
+    const m = Math.hypot(vx, vy);
+    if (m > 1) { vx /= m; vy /= m; }
+    P.moving = m > 0.15;
+    sprinting = P.moving && !crouch && (run || keys.Shift) && !tired && stam > 0;
+    if (P.moving) {
+      const spd = PLAYER_SPEED * (crouch ? 0.5 : sprinting ? 1.65 : 1) * (hunger <= 0 ? 0.65 : 1);
+      moveEntity(P, vx * spd * dt, vy * spd * dt);
+      P.dir = Math.abs(vx) > Math.abs(vy) ? (vx < 0 ? "left" : "right") : (vy < 0 ? "up" : "down");
+      anim += dt * (crouch ? 0.6 : sprinting ? 1.6 : 1);
+      stepT -= dt;
+      if (stepT <= 0) {
+        stepT = sprinting ? 0.22 : crouch ? 0.5 : 0.34;
+        const row = map[Math.floor((P.y + 13) / TS)], tt = row ? row[Math.floor((P.x + 8) / TS)] : ROAD;
+        sfx.step(inside ? "wood" : tt === GRASS ? "grass" : (tt === WALK && P.x / TS > CITY_END) ? "dirt" : "road", sprinting ? 1.5 : crouch ? 0.35 : 1);
+      }
+    }
+    if (sprinting) {
+      stam = Math.max(0, stam - dt * 22 * D.stam);
+      if (stam <= 0) { tired = true; run = false; $("bRun").setAttribute("aria-pressed", "false"); say("Tu es à bout de souffle.", 2.2); }
+    } else { stam = Math.min(100, stam + dt * (P.moving ? 10 : 22)); if (tired && stam >= 30) tired = false; }
+    const hidden = !!inside;
+    const px = hidden ? inside.x * TS : P.x, py = hidden ? (inside.y + 1) * TS : P.y;
+    const still = !P.moving, detect0 = (crouch ? (still ? 16 : 34) : (still ? 36 : 72)) * (1 + 0.35 * nightF()) * (sprinting ? 1.7 : 1) * D.det * (wxN === 1 ? 0.85 : wxN === 2 ? 0.75 : 1) * (torchT > 0 && !inside ? 1.25 : 1);
+    mobs.forEach(e => {
+      const K = KIND[e.kind] || KIND.normal;
+      const dx = px - e.x, dy = py - e.y, d = Math.hypot(dx, dy) || 1, detect = detect0 * K.det;
+      if (e.alert > 0) e.alert -= dt;
+      if (e.snd === undefined) e.snd = Math.random() * 4; e.snd -= dt;
+      if (e.stun > 0) { e.stun -= dt; e.fi = 0; return; }
+      let fn = null; for (const f of lights) if (Math.hypot(e.x - f.x, e.y - f.y) < (f.torch ? 46 : 62)) { fn = f; break; }
+      if (fn) { const fx2 = e.x - fn.x, fy2 = e.y - fn.y, fm = Math.hypot(fx2, fy2) || 1; moveEntity(e, fx2 / fm * 55 * dt, fy2 / fm * 55 * dt, solidWorld); e.state = e.horde ? "hunt" : "wander"; e.fi = (Math.floor(now / 260 + e.seed) % 2) + 1; return; }
+      if (e.lure) {
+        e.lure.t -= dt; const ldx = e.lure.x - e.x, ldy = e.lure.y - e.y, ld = Math.hypot(ldx, ldy) || 1;
+        moveEntity(e, ldx / ld * 38 * dt, ldy / ld * 38 * dt, solidWorld);
+        e.dir = Math.abs(ldx) > Math.abs(ldy) ? (ldx < 0 ? "left" : "right") : (ldy < 0 ? "up" : "down"); e.fi = (Math.floor(now / 260 + e.seed) % 2) + 1;
+        if (e.lure.t <= 0 || ld < 8) e.lure = null;
+        if (!hidden && d < 10) hurt(e);
+        return;
+      }
+      if (hidden) { if (e.state === "chase") e.state = (e.horde || e.alert > 0) ? "hunt" : "wander"; }
+      else if ((e.state === "wander" || e.state === "hunt") && d < detect) {
+        e.state = "chase"; sfx.roar(prox(d, 260) * 0.8);
+        say(e.kind === "scream" ? "Un hurleur t'a repéré !" : e.kind === "brute" ? "Un costaud t'a repéré !" : (mia ? "Mia : « Il t'a vu, cours ! »" : "Un infecté t'a repéré !"), 1.8);
+        if (e.kind === "scream") scream(e);
+      }
+      else if (e.state === "chase" && d > (crouch ? 95 : 140) && !(e.alert > 0)) e.state = e.horde ? "hunt" : "wander";
+      else if (mia && e.state === "wander" && d < 100 && now - miaWarn > 5000) { miaWarn = now; say("Mia : « Un infecté, " + (Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? "à gauche" : "à droite") : (dy < 0 ? "en haut" : "en bas")) + " ! »", 2.2); }
+      if (e.state === "hunt" && !e.horde && !(e.alert > 0)) e.state = "wander";
+      if (e.state === "chase" && e.kind === "scream" && !hidden) { e.scr -= dt; if (e.scr <= 0 && d < 230) scream(e); }
+      let sx = 0, sy = 0;
+      if (e.state === "chase") { sx = dx / d * K.chase * D.spd; sy = dy / d * K.chase * D.spd; }
+      else if (e.state === "hunt") { if (hidden && d < 36) { sx = 0; sy = 0; } else { sx = dx / d * 30; sy = dy / d * 30; } }
+      else {
+        e.t -= dt;
+        if (e.t <= 0) { e.t = 1.5 + Math.random() * 2.5; const a = Math.random() * 6.283; const still = Math.random() < 0.3; e.vx = still ? 0 : Math.cos(a) * WALK_SPEED; e.vy = still ? 0 : Math.sin(a) * WALK_SPEED; }
+        sx = e.vx; sy = e.vy;
+      }
+      const hit = moveEntity(e, sx * dt, sy * dt, solidWorld);
+      if (e.state === "chase" && d < 220) for (const o of mobs) { if (o === e) continue; const ox2 = e.x - o.x, oy2 = e.y - o.y; if (Math.abs(ox2) < 9 && Math.abs(oy2) < 9) { const dm = Math.hypot(ox2, oy2) || 1; moveEntity(e, ox2 / dm * 18 * dt, oy2 / dm * 18 * dt, solidWorld); } }
+      if (hit && e.state === "wander") { e.vx = -e.vx; e.vy = -e.vy; }
+      if (Math.abs(sx) + Math.abs(sy) > 1) { e.dir = Math.abs(sx) > Math.abs(sy) ? (sx < 0 ? "left" : "right") : (sy < 0 ? "up" : "down"); e.fi = (Math.floor(now / 260 + e.seed) % 2) + 1; } else e.fi = 0;
+      if (e.snd <= 0 && d < 240) { sfx.growl(prox(d, 240), e.kind); e.snd = (e.state === "chase" ? 1.8 : 4.5) + Math.random() * 4; }
+      if (e.kind === "brute" && Math.abs(sx) + Math.abs(sy) > 1 && d < 220) { e.st = (e.st || 0) - dt; if (e.st <= 0) { sfx.stomp(prox(d, 220)); e.st = 0.5; } }
+      if (!hidden && d < (e.kind === "brute" ? 13 : 10)) hurt(e);
+    });
+    updateTraps();
+    if (mia) {
+      if (inside) { mia.x = P.x - 12; mia.y = P.y + 2; mia.fi = 0; }
+      else {
+        const mdx = P.x - mia.x, mdy = P.y - mia.y, md = Math.hypot(mdx, mdy);
+        if (md > 120) { const f = findFree(Math.floor(P.x / TS), Math.floor(P.y / TS)); mia.x = f.x * TS; mia.y = f.y * TS; }
+        else if (md > 20) { const sp = 54; moveEntity(mia, mdx / md * sp * dt, mdy / md * sp * dt, solidWorld); mia.dir = Math.abs(mdx) > Math.abs(mdy) ? (mdx < 0 ? "left" : "right") : (mdy < 0 ? "up" : "down"); mia.fi = (Math.floor(now / 200) % 2) + 1; }
+        else mia.fi = 0;
+      }
+    }
+    if (marc) {
+      if (inside) { marc.x = P.x + 12; marc.y = P.y + 3; marc.fi = 0; marc.dir = "up"; }
+      else {
+        const mdx = P.x + 12 - marc.x, mdy = P.y + 4 - marc.y, md = Math.hypot(mdx, mdy);
+        if (md > 130) { const f = findFree(Math.floor(P.x / TS), Math.floor(P.y / TS)); marc.x = f.x * TS; marc.y = f.y * TS; }
+        else if (md > 18) { moveEntity(marc, mdx / md * 54 * dt, mdy / md * 54 * dt, solidWorld); marc.dir = Math.abs(mdx) > Math.abs(mdy) ? (mdx < 0 ? "left" : "right") : (mdy < 0 ? "up" : "down"); marc.fi = (Math.floor(now / 200) % 2) + 1; }
+        else marc.fi = 0;
+      }
+      if (!inside && now - marcWarn > 14000) { const t = mobs.find(e => (e.kind === "scream" || e.kind === "brute") && Math.hypot(e.x - P.x, e.y - P.y) < 190); if (t) { marcWarn = now; say(t.kind === "scream" ? "Marc : « Un hurleur ! Abattez-le vite. »" : "Marc : « Un costaud ! Ne l'affrontez pas de face. »", 2.6); } }
+    }
+    if (msgT > 0) { msgT -= dt; if (msgT <= 0) $("msg").textContent = ""; }
+    if (hunger <= 0 && msgT <= 0) say("Tu as faim. Trouve de quoi manger.", 2);
+    const bm = $("bMia"); bm.hidden = !(miaSkill && mia && !inside); if (!bm.hidden) bm.textContent = lureCd > 0 ? "Leurre " + Math.ceil(lureCd) + " s" : "Leurre";
+    // HUD
+    $("hHunger").textContent = Math.round(hunger); $("hStam").textContent = Math.round(stam); $("hLives").textContent = lives;
+    const ab = $("hAbriW"); ab.hidden = !(radioFixed && !inside);
+    if (!ab.hidden) { let bd = 1e9, bdx = 0, bdy = 0; for (const dd of doors.values()) { if (dd.kind !== "cabane") continue; const ddx = dd.x * TS + 8 - (P.x + 8), ddy = dd.y * TS + 16 - (P.y + 8), dist = Math.hypot(ddx, ddy); if (dist < bd) { bd = dist; bdx = ddx; bdy = ddy; } } $("hAbri").textContent = bd < 1e8 ? ["→", "↘", "↓", "↙", "←", "↖", "↑", "↗"][(Math.round(Math.atan2(bdy, bdx) / (Math.PI / 4)) + 8) % 8] + " " + Math.round(bd / TS * 2) + " m" : "?"; }
+    const sn = sfx.isMuted() ? "Son : non" : sfx.state() === "running" ? "Son : oui" : "Son : touche ici"; if ($("bSnd").textContent !== sn) $("bSnd").textContent = sn;
+    const nf = nightF(); sfx.ambient(nf, !!inside); hordeCheck(nf); $("hTime").textContent = nf >= 1 ? "Nuit" : nf > 0 ? (clock % DAY < 300 ? "Crépuscule" : "Aube") : "Jour"; $("hTime").textContent += WX_NAME[wxN];
+    const bT = $("bTorch"), bP = $("bTrap"); bT.hidden = (!!inside && inside.kind !== "metro") || !(torchT > 0 || countItem("torche") > 0); bP.hidden = !!inside || countItem("piege") < 1;
+    if (!bT.hidden) { const tt = torchT > 0 ? "Torche " + Math.ceil(torchT) + " s" : "Torche"; if (bT.textContent !== tt) bT.textContent = tt; bT.style.opacity = torchT > 0 ? 0.6 : 1; }
+    const wi = weaponItem(); $("bHit").hidden = !!inside || !wi; if (wi) { const bt = "Frapper : " + WEAPONS[wi.k].short; if ($("bHit").textContent !== bt) $("bHit").textContent = bt; }
+    if (radio && !inside) {
+      const ddx = (LDX + 1) * TS - (P.x + 8), ddy = (LDY + 1) * TS - (P.y + 8);
+      $("hDir").textContent = ["→", "↘", "↓", "↙", "←", "↖", "↑", "↗"][(Math.round(Math.atan2(ddy, ddx) / (Math.PI / 4)) + 8) % 8];
+      $("hDist").textContent = Math.round(Math.hypot(ddx, ddy) / TS * 2) + " m";
+    } else if (!radio) { $("hDir").textContent = "?"; $("hDist").textContent = ""; }
+    actNow = contextAction();
+    const b = $("bAct"); b.hidden = !actNow; if (actNow) b.textContent = actNow.label;
+  }
+  render(now);
+  requestAnimationFrame(loop);
+}
+
+function drawPlayer(ox, oy) {
+  if (invuln > 0 && Math.floor(invuln * 10) % 2) return;
+  const fi = P.moving ? (Math.floor(anim / 0.16) % 2) + 1 : 0;
+  if (crouch) { g.save(); g.translate(0, oy + 16); g.scale(1, 0.78); g.translate(0, -(oy + 16)); drawChar(g, ch, P.dir, fi, ox, oy); g.restore(); }
+  else drawChar(g, ch, P.dir, fi, ox, oy);
+}
+function render(now) {
+  if (inside) {
+    g.drawImage(cur.canvas, 0, 0);
+    cur.pieces.forEach((p, i) => { if (p.search && !looted.has(inside.x + "," + inside.y + "," + i)) { g.fillStyle = "rgba(255,230,150," + (0.25 + 0.25 * Math.sin(now / 300 + i)) + ")"; g.fillRect(p.x * TS + 2, p.y * TS + 2, 2, 2); g.fillRect((p.x + p.w) * TS - 5, p.y * TS + 4, 2, 2); } });
+    if (inside.mia && !mia && cur.kid) drawKid(g, "down", 0, cur.kid.x, cur.kid.y);
+    if (mia) drawKid(g, "up", 0, Math.round(mia.x), Math.round(mia.y));
+    if (inside.sv && !marc && cur.kid) { g.save(); g.translate(0, cur.kid.y + 16); g.scale(1, 0.8); g.translate(0, -(cur.kid.y + 16)); drawChar(g, MARC, "down", 0, cur.kid.x, cur.kid.y); g.restore(); }
+    if (marc) drawChar(g, MARC, "up", 0, Math.round(marc.x), Math.round(marc.y));
+    drawPlayer(Math.round(P.x), Math.round(P.y));
+    const sx = P.x + 8, sy = P.y + 8, dark = inside.kind === "metro", rad = dark ? (torchT > 0 ? 130 : 55) : 190, grad = g.createRadialGradient(sx, sy, dark ? 14 : 30, sx, sy, rad);
+    grad.addColorStop(0, "rgba(6,10,8,0)"); grad.addColorStop(1, dark ? "rgba(2,3,4,0.97)" : "rgba(4,7,6,0.7)");
+    g.fillStyle = grad; g.fillRect(0, 0, VW, VH);
+    if (dark && torchT > 0) { const fl = 0.85 + 0.15 * Math.sin(now / 80), tg = g.createRadialGradient(sx, sy, 6, sx, sy, 110 * fl); tg.addColorStop(0, "rgba(255,170,70,.45)"); tg.addColorStop(1, "rgba(255,120,30,0)"); g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = tg; g.fillRect(0, 0, VW, VH); g.restore(); }
+    return;
+  }
+  const cx = Math.max(0, Math.min(MW * TS - VW, Math.round(P.x + 8 - VW / 2)));
+  const cy = Math.max(0, Math.min(MH * TS - VH, Math.round(P.y + 8 - VH / 2)));
+  g.drawImage(world, cx, cy, VW, VH, 0, 0, VW, VH);
+  pickups.forEach(p => {
+    if (p.got || Math.abs(p.x * TS - cx - 160) > 176 || Math.abs(p.y * TS - cy - 120) > 136) return;
+    if (p.hidden) { const near = mia && Math.hypot(p.x * TS - P.x, p.y * TS - P.y) < 80; g.fillStyle = "rgba(255,240,170," + (near ? 0.6 + 0.3 * Math.sin(now / 200) : 0.12 + 0.12 * Math.sin(now / 420 + p.x)) + ")"; g.fillRect(p.x * TS - cx + (near ? 6 : 7), p.y * TS - cy + 9, near ? 4 : 2, near ? 2 : 1); }
+    else drawItemIcon(g, p.k.startsWith("note") ? "note" : p.k.startsWith("page") ? "carnet" : p.k, p.x * TS - cx, p.y * TS - cy, now);
+  });
+  traps.forEach(t => {
+    const tx = Math.round(t.x - cx), ty = Math.round(t.y - cy); if (tx < -10 || tx > VW + 10 || ty < -10 || ty > VH + 10) return;
+    g.fillStyle = "rgba(0,0,0,.4)"; g.fillRect(tx - 5, ty - 2, 10, 5); g.fillStyle = "#5a4a3a"; g.fillRect(tx - 4, ty - 3, 8, 5);
+    g.fillStyle = "#c8ced2"; [[-3, -5], [0, -6], [3, -5], [-1, -3], [2, -3]].forEach(([a, b]) => g.fillRect(tx + a, ty + b, 1, 3));
+  });
+  corpses.forEach(c => {
+    const kx = Math.round(c.x - cx), ky = Math.round(c.y - cy); if (kx < -20 || kx > VW + 20 || ky < -20 || ky > VH + 20) return;
+    const a = c.t < 35 ? 1 : (45 - c.t) / 10; g.globalAlpha = a;
+    g.fillStyle = "rgba(60,8,8,.55)"; g.fillRect(kx + 1, ky + 9, 14, 5); g.fillRect(kx + 4, ky + 7, 9, 2); g.fillRect(kx + 3, ky + 14, 7, 1);
+    g.fillStyle = c.kind === "scream" ? "#3a343a" : "#2a302a"; g.fillRect(kx + 2, ky + 8, 11, 5); g.fillStyle = c.kind === "fast" ? "#6a2e2c" : "#4a4038"; g.fillRect(kx + 5, ky + 8, 7, 5); g.fillStyle = "#7d9477"; g.fillRect(kx + 1, ky + 9, 4, 3); g.fillRect(kx + 12, ky + 10, 2, 2);
+    g.globalAlpha = 1;
+  });
+  if (weather() === 1 && !inside) {
+    for (let ty = Math.floor(cy / TS); ty <= Math.ceil((cy + VH) / TS); ty++) for (let tx = Math.floor(cx / TS); tx <= Math.ceil((cx + VW) / TS); tx++) {
+      if (ty < 0 || tx < 0 || ty >= MH || tx >= MW || map[ty][tx] !== ROAD || hh(tx, ty, 610) > 0.16) continue;
+      const px2 = tx * TS - cx + 8, py2 = ty * TS - cy + 9, ph = ((now / 700 + hh(tx, ty, 611) * 5) % 1);
+      g.fillStyle = "rgba(70,90,110,.55)"; g.fillRect(Math.round(px2 - 5), Math.round(py2 - 1), 10, 3); g.fillStyle = "rgba(150,175,200,.5)"; g.fillRect(Math.round(px2 - 5), Math.round(py2 - 1), 4, 1);
+      const rr = 1 + Math.round(ph * 4); g.fillStyle = "rgba(190,210,230," + (0.5 * (1 - ph)) + ")"; g.fillRect(Math.round(px2 - rr), Math.round(py2), rr * 2, 1);
+    }
+  }
+  mobs.forEach(e => { if (Math.abs(e.x - cx - 160) < 180 && Math.abs(e.y - cy - 120) < 140) drawMob(g, e.dir, e.fi, Math.round(e.x - cx), Math.round(e.y - cy), e.kind, e, now); });
+  if (mia) drawKid(g, mia.dir, mia.fi, Math.round(mia.x - cx), Math.round(mia.y - cy));
+  if (marc) drawChar(g, MARC, marc.dir, marc.fi, Math.round(marc.x - cx), Math.round(marc.y - cy));
+  drawPlayer(Math.round(P.x - cx), Math.round(P.y - cy));
+  const sx = P.x - cx + 8, sy = P.y - cy + 8;
+  const n = nightF();
+  const wx = weather(), grad = g.createRadialGradient(sx, sy, 20, sx, sy, (200 - 70 * n) * (wx === 2 ? 0.7 : 1));
+  grad.addColorStop(0, "rgba(6,12,9," + (0.06 + 0.08 * n) + ")"); grad.addColorStop(0.45, "rgba(6,12,9," + (0.3 + 0.2 * n) + ")"); grad.addColorStop(1, "rgba(3,6,5," + (0.72 + 0.2 * n) + ")");
+  g.fillStyle = grad; g.fillRect(0, 0, VW, VH);
+  if (n > 0) { g.fillStyle = "rgba(10,20,50," + (0.2 * n) + ")"; g.fillRect(0, 0, VW, VH); }
+  if (wx === 2) { g.fillStyle = "rgba(190,200,200," + (0.22 - 0.1 * n) + ")"; g.fillRect(0, 0, VW, VH); const fg = g.createRadialGradient(sx, sy, 25, sx, sy, 150); fg.addColorStop(0, "rgba(180,190,190,0)"); fg.addColorStop(1, "rgba(170,180,180," + (0.45 - 0.2 * n) + ")"); g.fillStyle = fg; g.fillRect(0, 0, VW, VH); }
+  if (wx === 1) {
+    g.fillStyle = "rgba(20,30,45,.18)"; g.fillRect(0, 0, VW, VH); g.fillStyle = "rgba(190,210,230,.5)";
+    for (let i = 0; i < 70; i++) { const rx = (i * 53.7 + now * 0.05) % (VW + 20), ry = (i * 97.3 + now * 0.35) % (VH + 20); g.fillRect(Math.round(VW - rx), Math.round(ry), 1, 4); }
+  }
+  if (torchT > 0) {
+    const fl = 0.85 + 0.15 * Math.sin(now / 80), tg = g.createRadialGradient(sx, sy, 6, sx, sy, 120 * fl); tg.addColorStop(0, "rgba(255,170,70," + (0.5 * (torchT < 12 ? torchT / 12 : 1)) + ")"); tg.addColorStop(1, "rgba(255,120,30,0)");
+    g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = tg; g.fillRect(0, 0, VW, VH); g.restore();
+  }
+  if (P.x / TS > CITY_END - 2 && n > 0.2 && wx !== 1) {
+    for (let i = 0; i < 16; i++) {
+      const ph = now / 1000 + i * 7.3, fxp = ((i * 61 + Math.sin(ph * 0.7 + i) * 18 + P.x) % (VW + 40) + VW + 40) % (VW + 40) - 20, fyp = ((i * 43 + Math.cos(ph * 0.5 + i) * 14 + P.y * 0.7) % (VH + 40) + VH + 40) % (VH + 40) - 20, tw = 0.5 + 0.5 * Math.sin(ph * 2.3);
+      g.fillStyle = "rgba(200,255,120," + (0.75 * tw * n) + ")"; g.fillRect(Math.round(fxp), Math.round(fyp), 2, 2); g.fillStyle = "rgba(200,255,120," + (0.2 * tw * n) + ")"; g.fillRect(Math.round(fxp) - 1, Math.round(fyp) - 1, 4, 4);
+    }
+  }
+  fires.forEach(f => {
+    const fx = f.x - cx, fy = f.y - cy; if (fx < -120 || fx > VW + 120 || fy < -120 || fy > VH + 120) return;
+    const fl = 0.8 + 0.2 * Math.sin(now / 90 + f.x), small = f.t < 40;
+    const lg = g.createRadialGradient(fx, fy, 4, fx, fy, 95 * fl); lg.addColorStop(0, "rgba(255,170,70," + (0.55 * (small ? 0.6 : 1)) + ")"); lg.addColorStop(1, "rgba(255,120,30,0)");
+    g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = lg; g.fillRect(fx - 100, fy - 100, 200, 200); g.restore();
+    g.fillStyle = "#3b2a1b"; g.fillRect(Math.round(fx) - 5, Math.round(fy) + 1, 10, 2); g.fillRect(Math.round(fx) - 3, Math.round(fy) - 1, 6, 2);
+    const h = Math.round(4 + 3 * Math.sin(now / 70 + f.x) + (small ? -2 : 1));
+    g.fillStyle = "#d9501a"; g.fillRect(Math.round(fx) - 3, Math.round(fy) - h, 6, h); g.fillStyle = "#f2a51a"; g.fillRect(Math.round(fx) - 2, Math.round(fy) - h + 2, 4, h - 2); g.fillStyle = "#fff0a0"; g.fillRect(Math.round(fx) - 1, Math.round(fy) - 2, 2, 2);
+    for (let i = 0; i < 5; i++) { const ph = ((now / 1400 + i * 0.2 + f.x * 0.01) % 1); g.fillStyle = "rgba(150,150,145," + (0.28 * (1 - ph)) + ")"; const sz = 2 + Math.round(ph * 3); g.fillRect(Math.round(fx + Math.sin(ph * 6 + i) * 4 - sz / 2), Math.round(fy - h - 3 - ph * 26), sz, sz); }
+  });
+  if (swing) {
+    const px = P.x - cx, py = P.y - cy; g.fillStyle = "rgba(255,255,255,.75)";
+    if (swing.dir === "down") g.fillRect(px + 2, py + 16, 12, 2); else if (swing.dir === "up") g.fillRect(px + 2, py + 1, 12, 2); else if (swing.dir === "left") g.fillRect(px - 3, py + 4, 2, 11); else g.fillRect(px + 17, py + 4, 2, 11);
+  }
+  const lx = (LDX + 1) * TS - cx, ly = (LDY + 1) * TS - cy;
+  if (lx > -140 && lx < VW + 140 && ly > -140 && ly < VH + 140) {
+    const pulse = 0.16 + 0.05 * Math.sin(now / 500);
+    const lg = g.createRadialGradient(lx, ly, 6, lx, ly, 120);
+    lg.addColorStop(0, "rgba(90,255,200," + (pulse + 0.1) + ")"); lg.addColorStop(1, "rgba(90,255,200,0)");
+    g.fillStyle = lg; g.fillRect(0, 0, VW, VH);
+  }
+}
+
+/* ---------- Commandes : clavier, joystick tactile et boutons ---------- */
+function toggleRun() {
+  if (!run && (tired || stam < 15)) { say("Tu es trop essoufflé pour courir.", 1.8); return; }
+  run = !run; if (run && crouch) { crouch = false; $("bCrouch").setAttribute("aria-pressed", "false"); }
+  $("bRun").setAttribute("aria-pressed", run); say(run ? "Tu cours. Attention, tu fais du bruit." : "Tu marches.", 1.8);
+}
+function toggleCrouch() { crouch = !crouch; if (crouch && run) { run = false; $("bRun").setAttribute("aria-pressed", "false"); } $("bCrouch").setAttribute("aria-pressed", crouch); say(crouch ? "Tu te baisses. Tu es plus discret." : "Tu te relèves.", 1.6); }
+addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  keys[k] = true;
+  if (e.key.startsWith("Arrow") || e.key === " ") e.preventDefault();
+  if (!running || $("game").hidden) return;
+  if (k === "e") doAction(); else if (k === "c") toggleCrouch(); else if (k === "b") { bagOpen ? closeBag() : openBag(); } else if (k === "m") { misOpen ? closeMis() : openMis(); } else if (k === "l") lure(); else if (k === "f") attack(); else if (k === "r") toggleRun(); else if (k === "Escape" && bagOpen) closeBag();
+});
+addEventListener("keyup", e => { keys[e.key.length === 1 ? e.key.toLowerCase() : e.key] = false; });
+const stick = $("stick"), knob = $("knob");
+function moveStick(e) {
+  const r = stick.getBoundingClientRect(), R = r.width / 2;
+  let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R);
+  const d = Math.hypot(dx, dy); if (d > R * 0.7) { dx *= R * 0.7 / d; dy *= R * 0.7 / d; }
+  knob.style.transform = `translate(${dx}px, ${dy}px)`;
+  const k = Math.hypot(dx, dy) / (R * 0.7);
+  stickVec.x = k < 0.2 ? 0 : dx / (R * 0.7); stickVec.y = k < 0.2 ? 0 : dy / (R * 0.7);
+}
+let stickId = null;
+stick.addEventListener("pointerdown", e => { stickId = e.pointerId; try { stick.setPointerCapture(e.pointerId); } catch (err) {} moveStick(e); });
+stick.addEventListener("pointermove", e => { if (e.pointerId === stickId) moveStick(e); });
+const endStick = e => { if (e && e.pointerId !== stickId) return; stickId = null; stickVec.x = 0; stickVec.y = 0; knob.style.transform = ""; };
+stick.addEventListener("pointerup", endStick); stick.addEventListener("pointercancel", endStick); stick.addEventListener("lostpointercapture", endStick);
+fastTap("bAct", doAction); fastTap("bCrouch", toggleCrouch); fastTap("bRun", toggleRun);
+
+/* ---------- Boutons de l'écran de création ---------- */
+$("name").addEventListener("input", e => { ch.name = e.target.value; });
+$("start").onclick = () => {
+  ch.name = $("name").value.trim() || (ch.gender === 1 ? "Noé" : "Léa");
+  try { localStorage.setItem("brume-perso", JSON.stringify(ch)); } catch (e) {}
+  $("creator").hidden = true; $("game").hidden = false; startGame();
+  if (!tutoSeen()) showTuto(0);
+};
+$("again").onclick = () => startGame();
+$("loadSave").onclick = () => { if (!loadGame()) startGame(); };
+$("bSave").onclick = () => saveGame(false);
+$("bSnd").onclick = () => { sfx.init(); sfx.setMuted(!sfx.isMuted()); if (!sfx.isMuted()) sfx.pickup(); };
+$("cont").onclick = () => { $("creator").hidden = true; $("game").hidden = false; if (!loadGame()) startGame(); };
+$("back").onclick = () => { saveGame(true); running = false; $("game").hidden = true; $("creator").hidden = false; buildCreator(); };
+buildCreator();
+</script>
