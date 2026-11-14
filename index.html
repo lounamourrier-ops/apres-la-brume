@@ -1,6 +1,15 @@
+<!doctype html>
+<html lang="fr">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Après la Brume</title>
+<meta name="description" content="Un jeu de survie en pixel art. Trouve le remède au laboratoire, sans te faire mordre.">
+<meta name="theme-color" content="#101612">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Après la Brume">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23101612'/%3E%3Crect x='4' y='20' width='24' height='4' fill='%232c3a2f'/%3E%3Crect x='7' y='14' width='18' height='4' fill='%23e0a33a'/%3E%3Crect x='11' y='8' width='10' height='4' fill='%23e6ebdf'/%3E%3C/svg%3E">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Lora:wght@400;600&display=swap">
 <style>
@@ -15,6 +24,7 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body {
+  margin: 0; overscroll-behavior: none;
   background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 17px; line-height: 1.5;
   padding-block: 18px 40px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
@@ -1390,6 +1400,9 @@ function updateTraps() {
   mobs.forEach(e => { if (e.hp <= 0) corpses.push({ x: e.x, y: e.y, t: 0, kind: e.kind, s: e.seed }); });
   mobs = mobs.filter(e => e.hp > 0);
 }
+// Sauvegarde dès que l'onglet passe en arrière-plan (utile sur téléphone, où Safari ferme vite les onglets)
+document.addEventListener("visibilitychange", () => { if (document.hidden) saveGame(true); });
+window.addEventListener("pagehide", () => saveGame(true));
 $("bMenu").onclick = () => { const m = $("menu"); m.hidden = !m.hidden; $("bMenu").setAttribute("aria-expanded", String(!m.hidden)); };
 $("menu").addEventListener("click", () => { $("menu").hidden = true; $("bMenu").setAttribute("aria-expanded", "false"); });
 fastTap("bTorch", lightTorch); fastTap("bTrap", placeTrap);
@@ -2108,3 +2121,5 @@ $("cont").onclick = () => { $("creator").hidden = true; $("game").hidden = false
 $("back").onclick = () => { saveGame(true); running = false; $("game").hidden = true; $("creator").hidden = false; buildCreator(); };
 buildCreator();
 </script>
+
+</html>
