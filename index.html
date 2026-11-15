@@ -148,7 +148,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
       <div id="mpCodeBig" aria-live="polite"></div>
       <p class="note" id="mpStatus" role="status"></p>
       <ul id="mpList"></ul>
-      <div class="sw"><button class="txt" id="mpLaunch" type="button" hidden>Lancer la partie</button><button class="txt" id="mpCancel" type="button">Annuler</button></div>
+      <div class="sw"><button class="txt" id="mpShare" type="button" hidden>Inviter un ami (envoyer le lien)</button><button class="txt" id="mpLaunch" type="button" hidden>Lancer la partie</button><button class="txt" id="mpCancel" type="button">Annuler</button></div>
     </div>
     <button class="go" id="cont" type="button" hidden>Continuer la partie sauvegardée</button>
     <button class="go" id="start" type="button">Commencer l'aventure</button>
@@ -2364,6 +2364,7 @@ function mpUi(msg) {
   const names = net.kind === "host" ? [ch.name || "Toi"].concat([...net.peers.values()].map(v => v.name)) : net.lobby.map(p => p.name);
   $("mpList").innerHTML = names.map(n => "<li>" + String(n).replace(/[<>&]/g, "") + "</li>").join("");
   $("mpCodeBig").textContent = hostLobby && net.code ? net.code : "";
+  $("mpShare").hidden = !(hostLobby && net.code);
   $("mpLaunch").hidden = !(hostLobby && net.peers.size >= 1);
   $("mpLaunch").textContent = "Lancer la partie (" + (net.peers.size + 1) + " joueurs)";
 }
@@ -2432,6 +2433,11 @@ function buildPlayers() {
   $("mpNote").textContent = "Tu joues seul.";
   $("mpJoinGo").onclick = () => mpJoin($("mpCode").value);
   $("mpLaunch").onclick = mpLaunch;
+  $("mpShare").onclick = async () => {
+    const url = location.href.split("?")[0] + "?join=" + net.code + (/[?&]net=local/.test(location.search) ? "&net=local" : "");
+    try { if (navigator.share) { await navigator.share({ title: "Après la Brume", text: "Rejoins ma partie ! Code : " + net.code, url }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+    try { await navigator.clipboard.writeText(url); mpUi("Lien copié. Colle-le dans un message à ton ami."); } catch (e) { mpUi("Envoie ce lien à ton ami : " + url); }
+  };
   $("mpCancel").onclick = () => { mpLeave(true); box.firstChild.click(); };
 }
 
@@ -2482,6 +2488,13 @@ $("bSnd").onclick = () => { sfx.init(); sfx.setMuted(!sfx.isMuted()); if (!sfx.i
 $("cont").onclick = () => { $("creator").hidden = true; $("game").hidden = false; if (!loadGame()) startGame(); };
 $("back").onclick = () => { if (isMP()) { mpLeave(); return; } saveGame(true); running = false; $("game").hidden = true; $("creator").hidden = false; buildCreator(); };
 buildCreator(); buildPlayers();
+// lien d'invitation : ?join=CODE ouvre directement l'écran « Rejoindre » avec le code déjà tapé
+(function () {
+  const jp = /[?&]join=([A-Za-z]{4})/.exec(location.search); if (!jp) return;
+  $("o-players").lastChild.click(); $("mpCode").value = jp[1].toUpperCase();
+  $("mpStatus").textContent = "Ton ami t'invite. Choisis ton personnage et ton prénom, puis touche Rejoindre.";
+  $("mpBox").scrollIntoView({ block: "center" });
+})();
 </script>
 
 </html>
