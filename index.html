@@ -1161,7 +1161,7 @@ function buildInterior(d) {
     g.drawImage(outlineCanvas(pcv, "#120d0a"), p.x * TS - 1, p.y * TS - 1);
   });
   const solidFn = (tx, ty) => tx < 0 || ty < 0 || tx >= IW || ty >= IH || sol[ty][tx] || pc[ty][tx];
-  return { canvas: c, pieces, solid: solidFn, kid };
+  return { canvas: c, pieces, solid: solidFn, kid, TH };
 }
 const GREENS_I = ["#244d27", "#2f6a2f"];
 function getInterior(d) { const k = d.y * MW + d.x; if (!interiors.has(k)) interiors.set(k, buildInterior(d)); return interiors.get(k); }
@@ -1302,7 +1302,7 @@ function startGame() {
   talkOpen = false; $("talk").hidden = true; bag = []; looted = new Set(); inside = null; cur = null; curSolid = solidWorld; crouch = false; run = false; stam = 100; sprinting = false; tired = false; hunger = 100; radio = true; bagOpen = false; bagSel = -1;
   $("bCrouch").setAttribute("aria-pressed", "false"); $("bRun").setAttribute("aria-pressed", "false"); $("bag").hidden = true; $("bMia").hidden = true;
   $("hName").textContent = ch.name || "Toi"; $("end").hidden = true; ended = false;
-  say("Suis la flèche en haut : va à la pharmacie (croix verte).", 6);
+  say("Glisse le doigt sur l'écran pour regarder autour. Va à la pharmacie : suis la flèche.", 7);
   running = true; last = performance.now(); requestAnimationFrame(loop);
 }
 const ARROWS = ["→", "↘", "↓", "↙", "←", "↖", "↑", "↗"];
@@ -1661,7 +1661,8 @@ function updateTraps() {
 // Sauvegarde dès que l'onglet passe en arrière-plan (utile sur téléphone, où Safari ferme vite les onglets)
 document.addEventListener("visibilitychange", () => { if (document.hidden) saveGame(true); });
 window.addEventListener("pagehide", () => saveGame(true));
-$("bVue").onclick = () => { visMode = visMode ? 0 : 1; try { localStorage.setItem("brume-vue", String(visMode)); } catch (e) {} $("bVue").textContent = "Vue : " + (visMode ? "personnage" : "large"); };
+const VUE_NOMS = ["du dessus (large)", "du dessus (cône)", "personnage (1re personne)"];
+$("bVue").onclick = () => { visMode = visMode === 2 ? 1 : visMode === 1 ? 0 : 2; try { localStorage.setItem("brume-vue2", String(visMode)); } catch (e) {} $("bVue").textContent = "Vue : " + VUE_NOMS[visMode]; };
 $("bZoom").onclick = () => { zoomI = (zoomI + 1) % ZOOMS.length; try { localStorage.setItem("brume-zoom", String(zoomI)); } catch (e) {} setView(); };
 $("bMenu").onclick = () => { const m = $("menu"); m.hidden = !m.hidden; $("bMenu").setAttribute("aria-expanded", String(!m.hidden)); };
 $("menu").addEventListener("click", () => { $("menu").hidden = true; $("bMenu").setAttribute("aria-expanded", "false"); });
@@ -1724,7 +1725,7 @@ function attack() {
   if (hitCd > 0) return;
   hitCd = W.cd; swing = { t: 0.18, dir: P.dir }; sfx.swing();
   let tgt = null, bd = W.reach;
-  mobs.forEach(e => { const d = Math.hypot(e.x - P.x, e.y - P.y); if (d < bd) { bd = d; tgt = e; } });
+  mobs.forEach(e => { const d = Math.hypot(e.x - P.x, e.y - P.y); if (visMode === 2) { let da = Math.atan2(e.y - P.y, e.x - P.x) - camAng; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832; if (Math.abs(da) > 0.95) return; } if (d < bd) { bd = d; tgt = e; } });
   if (!tgt) { say("Aucun infecté à portée. Approche-toi, puis touche Frapper.", 1.6); return; }
   const big = tgt.kind === "brute", ang = Math.atan2(tgt.y - P.y, tgt.x - P.x), kb = big ? W.kb * 0.5 : W.kb;
   if (isGuest()) { net.toHost({ t: "hit", id: tgt.id, dmg: W.dmg, ang, kb, stun: big ? Math.min(W.stun, 0.55) : W.stun, ax: P.x, ay: P.y }); sfx.hit(); wearWeapon(wi.k); return; }
@@ -1911,7 +1912,7 @@ const TUTO = [
     g.fillStyle = "rgba(8,12,10,.9)"; g.fillRect(20, 124, 280, 40); g.strokeStyle = "#e0a33a"; g.strokeRect(20.5, 124.5, 279, 39);
     tutoText(g, "ÉTAPE 1/4 : trouve la carte d'accès...   ↗ 120 m", 160, 144, "#e6ebdf", 8, "center");
   } },
-  { t: "Te déplacer", d: "Pousse le joystick, en bas à gauche, pour marcher. Suis la flèche en haut de l'écran : elle te guide vers ta prochaine étape. Tu ne vois que ce que ton personnage voit : le cône devant lui.", draw: g => {
+  { t: "Te déplacer", d: "Pousse le joystick, en bas à gauche, pour avancer. Glisse ton doigt sur l'écran pour tourner la tête : tu vois ce que voit ton personnage. Suis la flèche en haut de l'écran : elle te guide vers ta prochaine étape. Tu es le personnage : tu vois ce qu'il voit.", draw: g => {
     tutoBg(g, 0, 0); spr2(g, gg => drawChar(gg, ch, "right", 1, 0, 0), 140, 78);
     g.fillStyle = "rgba(230,235,223,.1)"; g.beginPath(); g.arc(50, 138, 28, 0, 6.283); g.fill(); g.strokeStyle = "rgba(230,235,223,.45)"; g.lineWidth = 2; g.stroke();
     g.fillStyle = "rgba(224,163,58,.85)"; g.beginPath(); g.arc(60, 131, 12, 0, 6.283); g.fill();
@@ -2018,7 +2019,7 @@ function meetMia() {
 function enter(d) {
   sfx.door(); setTimeout(() => sfx.slam(), 380);
   inside = d; cur = getInterior(d); saved = { x: P.x, y: P.y };
-  curSolid = cur.solid; P.x = 9 * TS + 8; P.y = 11 * TS; P.dir = "up";
+  curSolid = cur.solid; P.x = 9 * TS + 8; P.y = 11 * TS; P.dir = "up"; camAng = -Math.PI / 2;
   calmNear();
   say(d.kind === "metro" ? "Station de métro abandonnée. Le tunnel passe sous le mur." : d.school ? "L'école. Des tables, un tableau noir." : d.market ? "Supermarché abandonné. Presque tout a été pillé." : d.police ? "Le commissariat. Des casiers et des bureaux." : d.hospital ? "Hôpital désert. Fouille les armoires." : d.sv && !marc && missions.survivor === "active" ? "Une voix faible, dans le noir : « Par ici... »" : d.mia && !mia ? "Tu entends un petit bruit, derrière un meuble..." : (firstIn ? "Tu es à l'abri. Les infectés ne peuvent pas ouvrir les portes." : "Tu refermes la porte derrière toi."), 3.5); firstIn = false;
 }
@@ -2033,7 +2034,7 @@ function metroCross() {
 function leave() {
   sfx.door(); setTimeout(() => sfx.slam(), 380);
   const d = inside; inside = null; cur = null; curSolid = solidWorld;
-  P.x = d.x * TS; P.y = (d.y + 1) * TS; P.dir = "down";
+  P.x = d.x * TS; P.y = (d.y + 1) * TS; P.dir = "down"; camAng = Math.PI / 2;
   if (mia) { mia.x = P.x - 10; mia.y = P.y + 2; }
 }
 function contextAction() {
@@ -2200,10 +2201,15 @@ function loop(now) {
     hunger = Math.max(0, hunger - dt * 100 / 300 * (1 + 0.4 * nightF()) * D.hunger);
     let vx = (keys.ArrowRight || keys.d ? 1 : 0) - (keys.ArrowLeft || keys.q || keys.a ? 1 : 0) + stickVec.x;
     let vy = (keys.ArrowDown || keys.s ? 1 : 0) - (keys.ArrowUp || keys.z || keys.w ? 1 : 0) + stickVec.y;
+    if (visMode === 2) {
+      camAng += ((keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0)) * 2.3 * dt;
+      const fw = (keys.ArrowUp || keys.z || keys.w ? 1 : 0) - (keys.ArrowDown || keys.s ? 1 : 0) - stickVec.y, sd = (keys.d ? 1 : 0) - (keys.q || keys.a ? 1 : 0) + stickVec.x;
+      vx = fw * Math.cos(camAng) - sd * Math.sin(camAng); vy = fw * Math.sin(camAng) + sd * Math.cos(camAng);
+    }
     if (isMP() && (uiOpen || ended)) { vx = 0; vy = 0; }
     const m = Math.hypot(vx, vy);
     if (m > 1) { vx /= m; vy /= m; }
-    P.moving = m > 0.15; if (P.moving) faceAng = Math.atan2(vy, vx);
+    P.moving = m > 0.15; if (P.moving) bobT += dt * (sprinting ? 13 : crouch ? 5 : 8.5); if (P.moving) faceAng = Math.atan2(vy, vx);
     { let da = faceAng - visAng; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832; visAng += da * Math.min(1, dt * 9); }
     sprinting = P.moving && !crouch && (run || keys.Shift) && !tired && stam > 0;
     if (P.moving) {
@@ -2211,6 +2217,7 @@ function loop(now) {
       moveEntity(P, vx * spd * dt, vy * spd * dt);
       P.dir = Math.abs(vx) > Math.abs(vy) ? (vx < 0 ? "left" : "right") : (vy < 0 ? "up" : "down");
       anim += dt * (crouch ? 0.6 : sprinting ? 1.6 : 1);
+      if (visMode === 2) P.dir = dirFromAng(camAng);
       stepT -= dt;
       if (stepT <= 0) {
         stepT = sprinting ? 0.22 : crouch ? 0.5 : 0.34;
@@ -2298,7 +2305,7 @@ function loop(now) {
     // HUD
     $("hHunger").textContent = Math.round(hunger); $("hStam").textContent = Math.round(stam); $("hLives").textContent = lives;
     const ab = $("hAbriW"); ab.hidden = !(radioFixed && !inside);
-    if (!ab.hidden) { let bd = 1e9, bdx = 0, bdy = 0; for (const dd of doors.values()) { if (dd.kind !== "cabane") continue; const ddx = dd.x * TS + 8 - (P.x + 8), ddy = dd.y * TS + 16 - (P.y + 8), dist = Math.hypot(ddx, ddy); if (dist < bd) { bd = dist; bdx = ddx; bdy = ddy; } } $("hAbri").textContent = bd < 1e8 ? ["→", "↘", "↓", "↙", "←", "↖", "↑", "↗"][(Math.round(Math.atan2(bdy, bdx) / (Math.PI / 4)) + 8) % 8] + " " + Math.round(bd / TS * 2) + " m" : "?"; }
+    if (!ab.hidden) { let bd = 1e9, bdx = 0, bdy = 0; for (const dd of doors.values()) { if (dd.kind !== "cabane") continue; const ddx = dd.x * TS + 8 - (P.x + 8), ddy = dd.y * TS + 16 - (P.y + 8), dist = Math.hypot(ddx, ddy); if (dist < bd) { bd = dist; bdx = ddx; bdy = ddy; } } $("hAbri").textContent = bd < 1e8 ? arrowFor(bdx, bdy) + " " + Math.round(bd / TS * 2) + " m" : "?"; }
     const sn = sfx.isMuted() ? "Son : non" : sfx.state() === "running" ? "Son : oui" : "Son : touche ici"; if ($("bSnd").textContent !== sn) $("bSnd").textContent = sn;
     const nf = nightF(); sfx.ambient(nf, !!inside); if (!isGuest()) hordeCheck(nf); $("hTime").textContent = nf >= 1 ? "Nuit" : nf > 0 ? (clock % DAY < 300 ? "Crépuscule" : "Aube") : "Jour"; $("hTime").textContent += WX_NAME[wxN];
     const bT = $("bTorch"), bP = $("bTrap"); bT.hidden = (!!inside && inside.kind !== "metro") || !(torchT > 0 || countItem("torche") > 0); bP.hidden = !!inside || countItem("piege") < 1;
@@ -2306,13 +2313,13 @@ function loop(now) {
     const wi = weaponItem(); $("bHit").hidden = !!inside || !wi; if (wi) { const bt = "Frapper : " + WEAPONS[wi.k].short; if ($("bHit").textContent !== bt) $("bHit").textContent = bt; }
     if (radio && !inside) {
       const ddx = (LDX + 1) * TS - (P.x + 8), ddy = (LDY + 1) * TS - (P.y + 8);
-      $("hDir").textContent = ["→", "↘", "↓", "↙", "←", "↖", "↑", "↗"][(Math.round(Math.atan2(ddy, ddx) / (Math.PI / 4)) + 8) % 8];
+      $("hDir").textContent = arrowFor(ddx, ddy);
       $("hDist").textContent = Math.round(Math.hypot(ddx, ddy) / TS * 2) + " m";
     } else if (!radio) { $("hDir").textContent = "?"; $("hDist").textContent = ""; }
     const gi = goalInfo(), gt = "Étape " + gi.n + "/4 : " + gi.t;
     if ($("goalT").textContent !== gt) $("goalT").textContent = gt;
     let ga = "";
-    if (gi.tx !== null && !inside) { const ddx = gi.tx * TS + 8 - (P.x + 8), ddy = gi.ty * TS + 8 - (P.y + 8); ga = ARROWS[(Math.round(Math.atan2(ddy, ddx) / (Math.PI / 4)) + 8) % 8] + " " + Math.round(Math.hypot(ddx, ddy) / TS * 2) + " m"; }
+    if (gi.tx !== null && !inside) { const ddx = gi.tx * TS + 8 - (P.x + 8), ddy = gi.ty * TS + 8 - (P.y + 8); ga = arrowFor(ddx, ddy) + " " + Math.round(Math.hypot(ddx, ddy) / TS * 2) + " m"; }
     if ($("goalA").textContent !== ga) $("goalA").textContent = ga;
     $("goal").hidden = false;
     actNow = contextAction();
@@ -2329,9 +2336,291 @@ function drawPlayer(ox, oy) {
   if (crouch) { g.save(); g.translate(0, oy + 16); g.scale(1, 0.78); g.translate(0, -(oy + 16)); drawChar(g, ch, P.dir, fi, ox, oy); g.restore(); }
   else drawChar(g, ch, P.dir, fi, ox, oy);
 }
+/* ---------- Vue à la première personne : on est le personnage (lancer de rayons sur la carte) ---------- */
+let camAng = Math.PI / 2, bobT = 0;
+const FPSC = { fov: 1.12, WH: 26, maxD: 300, tex: new Map(), spr: new Map(), zb: null, img: null, buf: null, tmp: null, iw: 0, ih: 0 };
+const dirFromAng = a => { const c = Math.cos(a), s = Math.sin(a); return Math.abs(c) > Math.abs(s) ? (c > 0 ? "right" : "left") : (s > 0 ? "down" : "up"); };
+function arrowFor(dx, dy) {
+  const rel = visMode === 2 ? Math.atan2(dy, dx) - camAng : Math.atan2(dy, dx);
+  const i = visMode === 2 ? (Math.round(rel / (Math.PI / 4)) + 6) : Math.round(rel / (Math.PI / 4));
+  return ["→", "↘", "↓", "↙", "←", "↖", "↑", "↗"][((i % 8) + 8) % 8];
+}
+function fpsOpaque(tx, ty) { if (tx < 0 || ty < 0 || tx >= MW || ty >= MH) return 1; const t = map[ty][tx]; return (t === BUILD || t === WALL || t === GATE || t === LAB || t === LABDOOR) ? t : 0; }
+const mkc = (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
+
+// --- textures des murs (32 x 32), fabriquées à la demande
+function texCanvas(key, draw) { let c = FPSC.tex.get(key); if (!c) { c = mkc(32, 32); draw(c.getContext("2d")); FPSC.tex.set(key, c); } return c; }
+function wallTex(tx, ty, t, face) {
+  const R = (g2, col, x, y, w, h) => { g2.fillStyle = col; g2.fillRect(x, y, w, h); };
+  const nz = (g2, base, n, k) => { for (let i = 0; i < n; i++) R(g2, shade(base, (hh(i, k, 77) - 0.5) * 0.3), Math.floor(hh(i, k, 78) * 32), Math.floor(hh(k, i, 79) * 32), 1 + (i % 2), 1); };
+  if (t === WALL) return texCanvas("wall" + face, g2 => { R(g2, "#5c615c", 0, 0, 32, 32); for (let i = 0; i < 32; i += 8) R(g2, "#474c47", 0, i + 7, 32, 1); R(g2, "#474c47", 15, 0, 1, 8); R(g2, "#474c47", 7, 8, 1, 8); R(g2, "#474c47", 23, 16, 1, 8); R(g2, "#474c47", 11, 24, 1, 8); nz(g2, "#5c615c", 30, 1); R(g2, "#2a2d2a", 0, 0, 32, 3); for (let i = 0; i < 32; i += 6) { R(g2, "#8a8e8a", i, 1, 1, 1); R(g2, "#8a8e8a", i + 3, 0, 1, 1); } R(g2, "#c8a030", 0, 26, 32, 2); R(g2, "#1b1b1b", 4, 26, 4, 2); R(g2, "#1b1b1b", 14, 26, 4, 2); R(g2, "#1b1b1b", 24, 26, 4, 2); });
+  if (t === GATE) return texCanvas("gate" + face, g2 => { R(g2, "#3a3e3a", 0, 0, 32, 32); for (let i = 1; i < 32; i += 4) R(g2, "#8a8e8a", i, 2, 2, 28); R(g2, "#c8a030", 0, 0, 32, 3); R(g2, "#c8a030", 0, 29, 32, 3); R(g2, "#6a6e6a", 0, 14, 32, 3); R(g2, "#d9c56a", 13, 12, 6, 7); R(g2, "#7a5a1a", 15, 14, 2, 3); });
+  if (t === LAB) return texCanvas("lab" + face, g2 => { R(g2, "#aeb7b7", 0, 0, 32, 32); R(g2, "#8d979a", 0, 26, 32, 6); for (let i = 0; i < 32; i += 8) { R(g2, "#d6b52a", i, 0, 4, 3); R(g2, "#1b1b1b", i + 4, 0, 4, 3); } R(g2, "#1b2b2b", 5, 8, 22, 12); R(g2, "#3fa89c", 7, 10, 18, 8); R(g2, "rgba(255,255,255,.3)", 7, 10, 18, 2); nz(g2, "#aeb7b7", 20, 2); });
+  if (t === LABDOOR) return texCanvas("labdoor", g2 => { R(g2, "#aeb7b7", 0, 0, 32, 32); R(g2, "#1b2b2b", 3, 4, 26, 28); R(g2, "#7ce0c0", 6, 7, 20, 25); R(g2, "#d9f2e8", 15, 7, 2, 25); R(g2, "#cfd8d8", 0, 3, 3, 29); R(g2, "#cfd8d8", 29, 3, 3, 29); R(g2, "#d6b52a", 0, 0, 32, 3); });
+  const cabin = tx > CITY_END, [ix, iy] = blockInfo(tx, ty), v = Math.floor(hh(ix, iy, 6) * 5), shop = !cabin && hh(ix, iy, 20) < 0.35, vr = Math.floor(hh(tx, ty, 31) * 8);
+  const wall = cabin ? "#5a4330" : walls[v], wf = shade(wall, .28);
+  const door = doors.get(ty * MW + tx);
+  const special = door || (hospital && Math.abs(tx - hospital.x) === 1 && ty === hospital.y) || (pharm && tx === pharm.x + 1 && ty === pharm.y) || (market && tx === market.x + 1 && ty === market.y) || (svShown && svDoor && tx === svDoor.x - 1 && ty === svDoor.y) || (bearShown && bearDoor && tx === bearDoor.x - 1 && ty === bearDoor.y);
+  const key = (face === 0 && special) ? "s" + tx + "," + ty + (door && door.locked ? "L" : "") : (cabin ? "c" : "b") + v + "." + face + "." + (face === 0 ? vr + (shop ? "s" : "") : 0);
+  return texCanvas(key, g2 => {
+    R(g2, wall, 0, 0, 32, 32); nz(g2, wall, 40, tx * 7 + ty);
+    if (cabin) { for (let i = 0; i < 32; i += 6) R(g2, shade(wall, -.25), i, 0, 1, 32); R(g2, shade(wall, -.4), 0, 28, 32, 4); }
+    else { R(g2, shade(wall, .2), 0, 0, 32, 4); R(g2, shade(wall, -.4), 0, 4, 32, 1); R(g2, shade(wall, -.3), 0, 26, 32, 6); R(g2, shade(wall, -.5), 0, 26, 32, 1); }
+    if (face === 0) {
+      if (door) { R(g2, shade(wall, .25), 7, 6, 18, 26); R(g2, "#0c0806", 9, 8, 14, 24); if (door.locked) { R(g2, "#4a3a2a", 9, 8, 14, 24); R(g2, "#2a2018", 15, 8, 2, 24); R(g2, "#c9a24a", 12, 18, 8, 5); } else { R(g2, "#3a281b", 9, 8, 6, 24); R(g2, "#7a5a2b", 12, 19, 2, 2); } }
+      else if (shop) { R(g2, wf, 3, 13, 26, 13); R(g2, "#10171c", 5, 15, 22, 9); for (let i = 0; i < 32; i += 4) R(g2, i % 8 ? "#8a3e3e" : "#bdb7a4", i, 10, 4, 3); R(g2, "rgba(255,255,255,.08)", 6, 16, 8, 1); }
+      else if (vr < 5) { R(g2, wf, 8, 8, 16, 13); R(g2, "#141b21", 10, 10, 12, 9); R(g2, "#9fb2b8", 10, 10, 3, 1); R(g2, "#9fb2b8", 17, 13, 4, 1); R(g2, shade(wall, .3), 7, 21, 18, 2); R(g2, "rgba(255,255,255,.05)", 11, 11, 4, 2); if (vr === 2) R(g2, "#5a4a4a", 10, 10, 5, 9); }
+      else if (vr === 5) { R(g2, wf, 8, 8, 16, 13); R(g2, "#6b5236", 8, 10, 16, 3); R(g2, "#5a4430", 8, 15, 16, 3); R(g2, "#2a2018", 11, 10, 1, 1); R(g2, "#2a2018", 20, 15, 1, 1); }
+      else if (vr === 6) { R(g2, wf, 8, 8, 16, 13); R(g2, "#0b0c0d", 10, 10, 12, 9); R(g2, "#9fb2b8", 11, 11, 2, 1); R(g2, "#9fb2b8", 19, 17, 2, 1); }
+      if (hospital && Math.abs(tx - hospital.x) === 1 && ty === hospital.y) { if (tx > hospital.x) { R(g2, "#d9d9d0", 4, 5, 24, 22); R(g2, "#c0392b", 13, 7, 6, 18); R(g2, "#c0392b", 7, 13, 18, 6); } else { R(g2, "#d9d9d0", 6, 6, 20, 19); R(g2, "#c0392b", 10, 8, 4, 15); R(g2, "#c0392b", 18, 8, 4, 15); R(g2, "#c0392b", 10, 14, 12, 4); } }
+      if (pharm && tx === pharm.x + 1 && ty === pharm.y) { R(g2, "#1a1f1b", 4, 6, 24, 20); R(g2, "#3fbf6a", 12, 6, 8, 20); R(g2, "#3fbf6a", 6, 12, 20, 8); R(g2, "#8ae0a8", 12, 6, 2, 20); R(g2, "#8ae0a8", 6, 12, 20, 2); }
+      if (market && tx === market.x + 1 && ty === market.y) { R(g2, "#25503a", 4, 5, 24, 22); R(g2, "#fff", 8, 10, 14, 2); R(g2, "#fff", 8, 10, 2, 10); R(g2, "#fff", 10, 18, 12, 2); R(g2, "#10171c", 18, 5, 6, 12); }
+      if (svShown && svDoor && tx === svDoor.x - 1 && ty === svDoor.y) { R(g2, "#4a8ad0", 14, 4, 4, 22); R(g2, "#4a8ad0", 8, 6, 6, 6); R(g2, "#4a8ad0", 18, 6, 6, 6); }
+      if (bearShown && bearDoor && tx === bearDoor.x - 1 && ty === bearDoor.y) { R(g2, "#e0709a", 14, 4, 4, 22); R(g2, "#e0709a", 8, 6, 6, 6); R(g2, "#e0709a", 18, 6, 6, 6); }
+    } else if (face === 2) { R(g2, shade(wall, -.15), 0, 0, 32, 32); R(g2, shade(wall, -.4), 5, 4, 3, 22); R(g2, shade(wall, .1), 8, 4, 1, 22); }
+    else { R(g2, shade(wall, -.1), 0, 0, 32, 32); R(g2, shade(wall, -.4), 6, 10, 10, 6); R(g2, shade(wall, .1), 6, 10, 10, 1); }
+    // lierre et taches
+    for (let i = 0; i < 32; i += 2) if (hh(tx * 3 + i, ty, 150) < 0.5) { const L = 4 + Math.floor(hh(i, tx + ty, 170) * 12); R(g2, GREENS[0], i, 0, 2, L); if (L > 6) R(g2, GREENS[2], i - 1, L - 3, 3, 3); }
+    if (hh(tx, ty, 120) < 0.4) { R(g2, "rgba(0,0,0,.3)", 4, 8, 1, 8); R(g2, "rgba(0,0,0,.3)", 6, 14, 1, 10); }
+  });
+}
+
+// --- images des objets du décor vus de côté
+function fpsSprite(key, w, h, draw) { let c = FPSC.spr.get(key); if (!c) { c = mkc(w, h); draw(c.getContext("2d")); FPSC.spr.set(key, c); } return c; }
+function carSide(ci, burnt) {
+  return fpsSprite("car" + ci + burnt, 26, 14, g2 => {
+    const R = (col, x, y, w, h) => { g2.fillStyle = col; g2.fillRect(x, y, w, h); };
+    const body = burnt ? "#1d1b19" : ["#6e3a30", "#3f5a6c", "#6a6a58"][ci], glass = burnt ? "#0a0a0a" : "#10171c";
+    R("rgba(0,0,0,.4)", 1, 12, 24, 2); R(body, 1, 6, 24, 5); R(shade(body, .18), 1, 6, 24, 1); R(body, 5, 2, 15, 5); R(shade(body, .1), 5, 2, 15, 1);
+    R(glass, 6, 3, 5, 3); R(glass, 13, 3, 6, 3); R("#0b0b0b", 3, 9, 5, 5); R("#0b0b0b", 18, 9, 5, 5); R("#555", 5, 11, 1, 1); R("#555", 20, 11, 1, 1);
+    R("#c8c080", 24, 7, 1, 2); R("#6a2020", 1, 7, 1, 2); if (burnt) { R("rgba(70,40,15,.8)", 8, 7, 5, 3); } else { R("#aebfc6", 10, 3, 1, 1); R("#7a4a28", 3, 7, 3, 2); }
+  });
+}
+const barrierSide = () => fpsSprite("barrier", 18, 10, g2 => { g2.fillStyle = "#3a3a3a"; g2.fillRect(2, 4, 2, 6); g2.fillRect(14, 4, 2, 6); g2.fillStyle = "#d9d9d0"; g2.fillRect(0, 1, 18, 4); g2.fillStyle = "#c25b22"; g2.fillRect(2, 1, 4, 4); g2.fillRect(10, 1, 4, 4); g2.fillStyle = "#c8a030"; g2.fillRect(8, 0, 2, 1); });
+const debrisSide = (k) => fpsSprite("debris" + k, 18, 12, g2 => { const R = (c, x, y, w, h) => { g2.fillStyle = c; g2.fillRect(x, y, w, h); }; R("rgba(0,0,0,.35)", 1, 10, 16, 2); if (k) { R("#6a6a66", 2, 5, 7, 6); R("#8a8a84", 5, 2, 6, 7); R("#9a4a36", 10, 6, 5, 5); R("#c9c9c0", 7, 2, 2, 1); R("#2a2a2a", 13, 1, 1, 7); } else { R("#3a4a3a", 2, 4, 12, 7); R("#2a382a", 2, 4, 12, 2); R("#222", 12, 5, 4, 6); R("#7a5a3a", 0, 8, 3, 2); } });
+const fireSprite = (f) => fpsSprite("fire" + f, 16, 20, g2 => { const R = (c, x, y, w, h) => { g2.fillStyle = c; g2.fillRect(x, y, w, h); }; const hgt = 7 + f * 2; R("#3b2a1b", 2, 17, 12, 3); R("#2a1d12", 4, 15, 8, 3); R("#d9501a", 4, 16 - hgt, 8, hgt); R("#f2a51a", 5, 18 - hgt, 6, hgt - 2); R("#fff0a0", 7, 12, 2, 4); });
+const trapSide = () => fpsSprite("trap", 14, 8, g2 => { g2.fillStyle = "#5a4a3a"; g2.fillRect(1, 5, 12, 3); g2.fillStyle = "#c8ced2"; [[2, 1], [5, 0], [8, 1], [11, 2], [3, 3], [7, 3]].forEach(([a, b]) => g2.fillRect(a, b, 1, 4)); });
+const corpseSide = (kind) => fpsSprite("corpse" + kind, 20, 8, g2 => { g2.fillStyle = "rgba(60,8,8,.7)"; g2.fillRect(0, 3, 20, 5); g2.fillStyle = "#2a302a"; g2.fillRect(3, 2, 14, 5); g2.fillStyle = kind === "fast" ? "#6a2e2c" : "#4a4038"; g2.fillRect(6, 2, 8, 5); g2.fillStyle = "#7d9477"; g2.fillRect(1, 3, 4, 3); g2.fillRect(16, 4, 3, 2); });
+const glintSprite = () => fpsSprite("glint", 9, 9, g2 => { g2.fillStyle = "rgba(255,240,170,.95)"; g2.fillRect(4, 0, 1, 9); g2.fillRect(0, 4, 9, 1); g2.fillStyle = "#fff"; g2.fillRect(3, 3, 3, 3); });
+function itemSide(k) { return fpsSprite("it" + k, 16, 16, g2 => { drawItemIcon(g2, k.startsWith("note") ? "note" : k.startsWith("page") ? "carnet" : k, 0, 0, 0); }); }
+function kidCanvas(dir, fi) { drawKid(mkc(1, 1).getContext("2d"), dir, fi, 0, 5); return spriteCache["kid|" + dir + "|" + fi]; }
+
+// --- le rendu
+const FCOL = [0, 0, 0], fc = (a, b, c) => { FCOL[0] = a; FCOL[1] = b; FCOL[2] = c; return FCOL; };
+function fpsFloorColor(tt, tx, ty, wx, wy, ix, iy, rain) {
+  const n = (((ix * 73856093) ^ (iy * 19349663)) >>> 3) & 15;
+  if (tt === ROAD || tt === CAR || tt === BARRIER) {
+    const lx = wx - tx * TS, ly = wy - ty * TS, by2 = byOf(ty), bx2 = ((tx - 3) % 10 + 10) % 10;
+    let r = 42 + n, g2 = 46 + n, b = 44 + n;
+    if (by2 >= 7 && bx2 < 8 && ((by2 === 7 && ly > 14.2) || (by2 === 8 && ly < 1.8)) && (tx % 2 === 0)) { r = 150; g2 = 142; b = 84; }
+    else if (bx2 >= 8 && by2 < 7 && ((bx2 === 8 && lx > 14.2) || (bx2 === 9 && lx < 1.8)) && (ty % 2 === 0)) { r = 150; g2 = 142; b = 84; }
+    else if ((tx + ty) % 7 === 0 && n > 11) { r -= 14; g2 -= 14; b -= 14; }
+    if (rain) { r -= 6; g2 -= 4; b += 6; if (n > 13) { r += 40; g2 += 46; b += 56; } }
+    return fc(r, g2, b);
+  }
+  if (tt === WALK || tt === DEBRIS) {
+    if (tx > CITY_END) return fc(74 + n, 61 + n, 44 + (n >> 1));
+    const lx = wx - tx * TS, ly = wy - ty * TS, gr = (Math.floor(lx) % 8 === 0 || Math.floor(ly) % 8 === 0);
+    if (PLAZA.has(ty * MW + tx)) return (tx + ty) % 2 ? fc(110 + n, 114 + n, 106 + n) : fc(102 + n, 106 + n, 98 + n);
+    return gr ? fc(64, 68, 62) : fc(88 + n, 92 + n, 86 + n);
+  }
+  if (GARDEN.has(ty * MW + tx) && ((ix + iy) & 3) === 0 && n > 8) return fc(58, 40, 26);
+  return fc(31 + (n >> 1), 59 + n, 39 + (n >> 1));
+}
+const hexRgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+// --- le décor dehors
+function outdoorScene() {
+  const n = nightF(), wxr = weather();
+  return {
+    out: true, n, wxr, amb: 1 - 0.7 * n, maxD: FPSC.maxD * (wxr === 2 ? 0.55 : 1) * (1 - 0.35 * n),
+    fogC: wxr === 2 ? [150, 160, 160] : n > 0.5 ? [10, 14, 22] : [96, 112, 106],
+    skyTop: n > 0.5 ? [6, 10, 20] : wxr === 2 ? [140, 150, 150] : [88, 108, 106], skyHor: n > 0.5 ? [18, 26, 38] : wxr === 2 ? [164, 172, 170] : [150, 168, 160],
+    opq: fpsOpaque, hgt: () => FPSC.WH, tex: (tx, ty, code, face) => wallTex(tx, ty, code, code === LABDOOR ? 0 : face),
+    floor: (wx, wy) => { const tx = Math.floor(wx / TS), ty = Math.floor(wy / TS), tt = (tx < 0 || ty < 0 || tx >= MW || ty >= MH) ? GRASS : map[ty][tx]; return fpsFloorColor(tt, tx, ty, wx, wy, Math.floor(wx / 2), Math.floor(wy / 2), wxr === 1); },
+    sprites: (add, now, ox, oy, maxD, facing) => {
+      const rr = Math.ceil(maxD / TS) + 1, cx0 = Math.floor(ox / TS), cy0 = Math.floor(oy / TS);
+      for (let ty = Math.max(0, cy0 - rr); ty <= Math.min(MH - 1, cy0 + rr); ty++) for (let tx = Math.max(0, cx0 - rr); tx <= Math.min(MW - 1, cx0 + rr); tx++) {
+        const t = map[ty][tx]; if (t !== TREE && t !== CAR && t !== BARRIER && t !== DEBRIS) continue;
+        const cxw = tx * TS + 8, cyw = ty * TS + 8, kk = ty * MW + tx;
+        if (t === TREE) { if (FOUNT.has(kk)) { add(cxw, cyw, fpsSprite("fountain", 24, 18, g2 => { g2.fillStyle = "#7e827a"; g2.fillRect(0, 9, 24, 9); g2.fillStyle = "#4a86a0"; g2.fillRect(2, 9, 20, 4); g2.fillStyle = "#8a8e86"; g2.fillRect(10, 2, 4, 9); g2.fillStyle = "#cfe3ec"; g2.fillRect(9, 0, 6, 3); }), 22, 15, 0); continue; } const v = tx > CITY_END && hh(tx, ty, 27) < 0.6 ? 3 + Math.floor(hh(tx, ty, 28) * 3) : Math.floor(hh(tx, ty, 29) * 3); add(cxw, cyw, treeSprite(v), 30, 34, 0); }
+        else if (t === CAR) add(cxw, cyw, carSide(Math.floor(hh(tx, ty, 6) * 3), hh(tx, ty, 5) < 0.34 ? 1 : 0), 22, 11, 0);
+        else if (t === BARRIER) add(cxw, cyw, barrierSide(), 16, 9, 0);
+        else if (t === DEBRIS) add(cxw, cyw, debrisSide(hh(tx, ty, 25) < 0.5 ? 1 : 0), 15, 10, 0);
+      }
+      pickups.forEach(p => { if (p.got) return; if (p.hidden) { if (mpDist(p.x * TS + 8, p.y * TS + 10) < 70) add(p.x * TS + 8, p.y * TS + 10, glintSprite(), 5, 5, 3 + Math.sin(now / 200) * 1.5); } else add(p.x * TS + 8, p.y * TS + 10, itemSide(p.k), 9, 9, 2 + Math.sin(now / 400 + p.x) * 1); });
+      fires.forEach(f => add(f.x, f.y, fireSprite(Math.floor(now / 110 + f.x) % 3), 8, 13, 0, { fire: true }));
+      traps.forEach(t => add(t.x, t.y, trapSide(), 8, 5, 0));
+      corpses.forEach(c => add(c.x + 8, c.y + 10, corpseSide(c.kind), 12, 5, 0));
+      mobs.forEach(e => {
+        const d = Math.hypot(e.x - P.x, e.y - P.y); if (d > maxD) return;
+        const big = e.kind === "brute", c = MOB_BY[e.kind] || MOB; let bob2 = 0; if (e.state !== "chase") bob2 = Math.sin(now / 240 + e.seed) * 0.4;
+        add(e.x + 8, e.y + 10, sprite(c, facing(e.x + 8, e.y + 10, e.dir), e.fi), big ? 21 : 15, big ? 27 : 19, bob2, { mob: e });
+      });
+      others.forEach(o => { if (o.inside) return; add(o.x + 8, o.y + 10, sprite(o.look, facing(o.x + 8, o.y + 10, o.dir), o.fi), 15, 19, 0, { name: o.name }); });
+      if (mia) add(mia.x + 8, mia.y + 10, kidCanvas(facing(mia.x + 8, mia.y + 10, mia.dir), mia.fi) || kidCanvas("down", 0), 12, 15, 0);
+      if (marc) add(marc.x + 8, marc.y + 10, sprite(MARC, facing(marc.x + 8, marc.y + 10, marc.dir), marc.fi), 15, 19, 0);
+    }
+  };
+}
+// --- l'intérieur des bâtiments : pièces à hauteur de plafond, meubles de différentes hauteurs
+function roomWallTex(TH, variant) {
+  return texCanvas("room" + TH[0] + (variant % 3), g2 => {
+    const R = (c, x, y, w, h) => { g2.fillStyle = c; g2.fillRect(x, y, w, h); };
+    R(TH[0], 0, 0, 32, 32); for (let i = 0; i < 32; i += 8) R(TH[1], i + 3, 0, 3, 32); R(shade(TH[0], -.35), 0, 26, 32, 6); R(shade(TH[0], .18), 0, 25, 32, 1); R(shade(TH[0], -.2), 0, 0, 32, 3);
+    for (let i = 0; i < 18; i++) R(shade(TH[0], (hh(i, variant, 71) - 0.5) * 0.25), Math.floor(hh(i, 1, 72) * 32), Math.floor(hh(1, i, 73) * 25), 2, 1);
+    if (variant % 3 === 1) { R(shade(TH[0], .25), 6, 6, 20, 14); R("#10171c", 8, 8, 16, 10); R("#9fb2b8", 9, 9, 5, 1); R("#9fb2b8", 17, 13, 5, 1); R("rgba(190,210,220,.12)", 8, 8, 16, 10); R(shade(TH[0], .25), 15, 8, 2, 10); }
+  });
+}
+const exitTex = () => texCanvas("exit", g2 => { const R = (c, x, y, w, h) => { g2.fillStyle = c; g2.fillRect(x, y, w, h); }; R("#2a2018", 0, 0, 32, 32); R("#6a5a48", 2, 0, 28, 32); R("#9fb2b8", 6, 2, 20, 28); R("rgba(255,255,255,.35)", 8, 4, 16, 6); R("#2a2018", 15, 2, 2, 28); R("#c9a24a", 22, 16, 2, 2); });
+function furnTex(t) {
+  return texCanvas("furn" + t, g2 => {
+    const R = (c, x, y, w, h) => { g2.fillStyle = c; g2.fillRect(x, y, w, h); };
+    if (t === "shelf") { R("#5a3f2a", 0, 0, 32, 32); R("#3a281b", 0, 9, 32, 2); R("#3a281b", 0, 20, 32, 2); for (let r = 0; r < 3; r++) for (let i = 0; i < 28; i += 5) R(["#7a3a3a", "#3a5a7a", "#6a7a3a", "#8a6a3a", "#5a3a6a"][(i / 5 + r) % 5 | 0], 2 + i, 2 + r * 11, 4, 8 - (i % 3)); R("#2a1d12", 0, 0, 2, 32); R("#2a1d12", 30, 0, 2, 32); }
+    else if (t === "wardrobe") { R("#4a3320", 0, 0, 32, 32); R("#3a281b", 15, 0, 2, 32); R("#5a4330", 2, 2, 12, 28); R("#5a4330", 18, 2, 12, 28); R("#c9a24a", 11, 15, 2, 3); R("#c9a24a", 19, 15, 2, 3); R("#2a1d12", 0, 0, 32, 2); }
+    else if (t === "table") { R("#6b5236", 0, 0, 32, 12); R("#8a6a46", 0, 0, 32, 3); R("#3a281b", 0, 12, 32, 2); R("#4a3320", 2, 14, 4, 18); R("#4a3320", 26, 14, 4, 18); R("#9a9a8a", 20, 4, 4, 4); }
+    else if (t === "bed") { R("#4a3320", 0, 0, 32, 32); R("#7a7a6a", 2, 3, 28, 12); R("#9a9a8a", 3, 3, 10, 8); R("#5a3a3a", 2, 15, 28, 15); R("#6a4848", 2, 15, 28, 3); }
+    else { R("#5a3a3a", 0, 0, 32, 32); R("#3a2424", 0, 0, 32, 10); R("#6a4a4a", 2, 12, 12, 16); R("#6a4a4a", 18, 12, 12, 16); R("#2a1a1a", 15, 12, 2, 18); }
+  });
+}
+function indoorScene() {
+  const d = inside, TH = cur.TH || ["#4a3d34", "#43362d", "#3b2f27", "#352a22"], metro = d.kind === "metro", c1 = hexRgb(TH[2]), c2 = hexRgb(TH[3]), torch = torchT > 0;
+  const pcAt = (tx, ty) => { for (let i = 0; i < cur.pieces.length; i++) { const p = cur.pieces[i]; if (tx >= p.x && tx < p.x + p.w && ty >= p.y && ty < p.y + p.h) return i; } return -1; };
+  const HG = { shelf: 24, wardrobe: 25, table: 11, bed: 8, sofa: 12 };
+  return {
+    out: false, n: 0, wxr: 0, amb: metro ? (torch ? 0.75 : 0.3) : 0.9, maxD: metro ? (torch ? 190 : 80) : 260, ceil: true,
+    fogC: metro ? [4, 6, 8] : [24, 20, 18], skyTop: metro ? [6, 8, 10] : [30, 24, 20], skyHor: metro ? [10, 12, 14] : [48, 40, 34],
+    opq: (tx, ty) => { if (tx < 0 || ty < 0 || tx >= IW || ty >= IH) return 1; if (cur.solid(tx, ty)) { const i = pcAt(tx, ty); return i >= 0 ? 2 + i : 1; } return 0; },
+    hgt: code => code >= 2 ? (HG[cur.pieces[code - 2].t] || 12) : FPSC.WH,
+    tex: (tx, ty, code, face) => code >= 2 ? furnTex(cur.pieces[code - 2].t) : (ty >= IH && (tx === 9 || tx === 10)) ? exitTex() : roomWallTex(TH, tx + ty),
+    floor: (wx, wy) => { const ix = Math.floor(wx / 2), iy = Math.floor(wy / 2), nz = (((ix * 73856093) ^ (iy * 19349663)) >>> 3) & 7, c = (Math.floor(wx / TS) + Math.floor(wy / TS)) % 2 ? c1 : c2, ln = Math.floor(wx) % 16 === 0 ? -12 : 0; return fc(c[0] + nz + ln, c[1] + nz + ln, c[2] + nz + ln); },
+    sprites: (add, now, ox, oy, maxD, facing) => {
+      if (cur.kid && inside.mia && !mia) add(cur.kid.x + 8, cur.kid.y + 10, kidCanvas("down", 0), 12, 15, 0);
+      if (cur.kid && inside.sv && !marc) add(cur.kid.x + 8, cur.kid.y + 10, sprite(MARC, "down", 0), 15, 19, 0);
+      if (mia) add(mia.x + 8, mia.y + 10, kidCanvas(facing(mia.x + 8, mia.y + 10, mia.dir), mia.fi) || kidCanvas("down", 0), 12, 15, 0);
+      if (marc) add(marc.x + 8, marc.y + 10, sprite(MARC, facing(marc.x + 8, marc.y + 10, marc.dir), marc.fi), 15, 19, 0);
+      cur.pieces.forEach((p, i) => { if (p.search && !looted.has(inside.x + "," + inside.y + "," + i)) add((p.x + p.w / 2) * TS, (p.y + p.h / 2) * TS, glintSprite(), 4, 4, (HG[p.t] || 12) + 2 + Math.sin(now / 300 + i), { low: true }); });
+    }
+  };
+}
+function renderFPS(now) {
+  const W = VW, H = VH, g0 = g, scn = inside ? indoorScene() : outdoorScene();
+  g.imageSmoothingEnabled = false;
+  if (FPSC.iw !== W || FPSC.ih !== H) { FPSC.img = g.createImageData(W, H); FPSC.buf = new Uint32Array(FPSC.img.data.buffer); FPSC.zb = new Float32Array(W); FPSC.iw = W; FPSC.ih = H; FPSC.tmp = mkc(W, H); }
+  FPSC.tmp.getContext("2d").imageSmoothingEnabled = false;
+  const buf = FPSC.buf, zb = FPSC.zb, n = scn.n, wxr = scn.wxr, amb = scn.amb, eyeH = crouch ? 6.5 : 10.5, maxD = scn.maxD, fogC = scn.fogC;
+  const fogI = (a2, b2, c2) => 0xff000000 | (c2 << 16) | (b2 << 8) | a2;
+  const ox = P.x + 8, oy = P.y + 11, a = camAng, dirX = Math.cos(a), dirY = Math.sin(a), tf = Math.tan(FPSC.fov / 2), plX = -dirY * tf, plY = dirX * tf, pd = (W / 2) / tf;
+  const bob = P.moving ? Math.sin(bobT * 2) * (sprinting ? 2.4 : 1.4) : 0, horizon = Math.round(H * 0.5 + bob);
+  const skyTop = scn.skyTop, skyHor = scn.skyHor;
+  for (let y = 0; y < Math.min(H, horizon + 1); y++) {
+    const f = horizon > 0 ? y / horizon : 1, r = skyTop[0] + (skyHor[0] - skyTop[0]) * f, gg = skyTop[1] + (skyHor[1] - skyTop[1]) * f, b = skyTop[2] + (skyHor[2] - skyTop[2]) * f, c = fogI(r | 0, gg | 0, b | 0), row = y * W;
+    for (let x = 0; x < W; x++) buf[row + x] = c;
+  }
+  if (scn.out && n > 0.5) for (let i = 0; i < 40; i++) { const sx = (i * 53 + Math.floor(a * 40)) % W, sy2 = (i * 29) % Math.max(1, horizon - 4); if (sy2 < horizon) buf[sy2 * W + ((sx + W) % W)] = fogI(200, 210, 230); }
+  for (let y = Math.max(0, horizon + 1); y < H; y++) {
+    const rowDist = eyeH * pd / (y - horizon), ff = Math.min(1, rowDist / maxD), br = amb * (1 - ff) * (wxr === 1 ? 0.85 : 1), row = y * W;
+    const stepX = rowDist * 2 * plX / W, stepY = rowDist * 2 * plY / W; let wx = ox + rowDist * (dirX - plX), wy = oy + rowDist * (dirY - plY);
+    for (let x = 0; x < W; x++, wx += stepX, wy += stepY) {
+      const col = scn.floor(wx, wy);
+      buf[row + x] = fogI(Math.min(255, (col[0] * br + fogC[0] * ff) | 0), Math.min(255, (col[1] * br + fogC[1] * ff) | 0), Math.min(255, (col[2] * br + fogC[2] * ff) | 0));
+    }
+  }
+  g0.putImageData(FPSC.img, 0, 0);
+  // murs et meubles : un rayon par colonne (les meubles bas laissent voir le mur derrière)
+  const lights = fires.map(f => [f.x, f.y]); if (torchT > 0) lights.push([ox, oy]); others.forEach(o => { if (!o.inside) lights.push([o.x + 8, o.y + 10]); });
+  const fogTxt = (fogC[0] >> 2) + "," + (fogC[1] >> 2) + "," + (fogC[2] >> 2);
+  for (let x = 0; x < W; x++) {
+    const camX = 2 * x / W - 1, rdx = dirX + plX * camX, rdy = dirY + plY * camX;
+    let mx = Math.floor(ox / TS), my = Math.floor(oy / TS), sdx, sdy, step_x, step_y; const ddx = rdx === 0 ? 1e9 : Math.abs(1 / rdx), ddy = rdy === 0 ? 1e9 : Math.abs(1 / rdy);
+    if (rdx < 0) { step_x = -1; sdx = (ox / TS - mx) * ddx; } else { step_x = 1; sdx = (mx + 1 - ox / TS) * ddx; }
+    if (rdy < 0) { step_y = -1; sdy = (oy / TS - my) * ddy; } else { step_y = 1; sdy = (my + 1 - oy / TS) * ddy; }
+    let side = 0, guard = 0; const maxT = maxD / TS, hits = [];
+    while (guard++ < 70) {
+      if (sdx < sdy) { sdx += ddx; mx += step_x; side = 0; } else { sdy += ddy; my += step_y; side = 1; }
+      const code = scn.opq(mx, my), dd = side ? sdy - ddy : sdx - ddx;
+      if (code) { hits.push({ perp: dd * TS, side, mx, my, code }); if (scn.hgt(code) >= FPSC.WH || hits.length > 3) break; }
+      if (dd > maxT) break;
+    }
+    if (!hits.length) { zb[x] = 1e9; continue; }
+    zb[x] = hits[0].perp;
+    for (let hi = hits.length - 1; hi >= 0; hi--) {
+      const h = hits[hi], perp = Math.max(0.5, h.perp), hgt = scn.hgt(h.code), lineH = hgt * pd / perp, top = horizon + (eyeH - hgt) * pd / perp;
+      let wallX = h.side ? (ox / TS + (perp / TS) * rdx) : (oy / TS + (perp / TS) * rdy); wallX -= Math.floor(wallX);
+      const face = h.side ? (rdy < 0 ? 0 : 1) : 2, tex = scn.tex(h.mx, h.my, h.code, face);
+      g0.drawImage(tex, Math.min(31, Math.floor(wallX * 32)), 0, 1, 32, x, top, 1, lineH);
+      let bright = amb * (1 - Math.min(1, perp / maxD)) * (h.side ? 0.78 : 1); if (wxr === 1) bright *= 0.88;
+      const hx = ox + perp * rdx, hy = oy + perp * rdy;
+      for (const L of lights) { const dl = Math.hypot(hx - L[0], hy - L[1]); if (dl < 90) bright = Math.max(bright, 0.95 * (1 - dl / 90) + bright * (dl / 90)); }
+      const al = 1 - Math.max(0, Math.min(1, bright));
+      if (al > 0.02) { g0.fillStyle = "rgba(" + fogTxt + "," + al.toFixed(2) + ")"; g0.fillRect(x, top, 1, lineH); }
+    }
+  }
+  // objets vus de côté (arbres, voitures, ennemis, objets au sol...)
+  const L = [], add = (wx, wy, img, ww, wh, lift, extra) => {
+    const dx = wx - ox, dy = wy - oy, depth = dx * dirX + dy * dirY; if (depth < 4 || depth > maxD) return;
+    const lat = -dx * dirY + dy * dirX; if (Math.abs(lat) > depth * tf * 1.4 + ww) return;
+    L.push(Object.assign({ depth, sx: W / 2 + lat / depth * pd, img, ww, wh, lift: lift || 0 }, extra || {}));
+  };
+  const facing = (ex, ey, edir) => {
+    const vx = ox - ex, vy = oy - ey, m = Math.hypot(vx, vy) || 1, fx = edir === "right" ? 1 : edir === "left" ? -1 : 0, fy = edir === "down" ? 1 : edir === "up" ? -1 : 0, dot = (vx * fx + vy * fy) / m, cr = (vx * fy - vy * fx) / m;
+    return Math.abs(dot) > 0.55 ? (dot > 0 ? "down" : "up") : (cr > 0 ? "right" : "left");
+  };
+  scn.sprites(add, now, ox, oy, maxD, facing);
+  L.sort((p, q) => q.depth - p.depth);
+  const tmp = FPSC.tmp, tg = tmp.getContext("2d");
+  for (const s of L) {
+    const hh2 = s.wh * pd / s.depth, ww2 = s.ww * pd / s.depth, bottom = horizon + (eyeH - s.lift) * pd / s.depth, top2 = bottom - hh2, left = s.sx - ww2 / 2;
+    let c0 = Math.max(0, Math.floor(left)), c1 = Math.min(W - 1, Math.ceil(left + ww2)); if (c1 < c0 || hh2 < 1) continue;
+    let run = -1;
+    for (let c = c0; c <= c1 + 1; c++) {
+      const vis = c <= c1 && zb[c] > s.depth;
+      if (vis && run < 0) run = c;
+      if (!vis && run >= 0) {
+        const sx0 = (run - left) / ww2 * s.img.width, sw = (c - run) / ww2 * s.img.width, bw = Math.max(1, c - run);
+        const dark = (s.fire || s.low) ? 0 : Math.min(0.85, 1 - amb * (1 - Math.min(1, s.depth / maxD)));
+        if (dark > 0.04) {
+          tg.clearRect(0, 0, bw + 1, Math.ceil(hh2) + 2); tg.drawImage(s.img, Math.max(0, sx0), 0, Math.max(0.5, sw), s.img.height, 0, 0, bw, hh2);
+          tg.globalCompositeOperation = "source-atop"; tg.fillStyle = "rgba(" + fogTxt + "," + dark.toFixed(2) + ")"; tg.fillRect(0, 0, bw + 1, Math.ceil(hh2) + 2); tg.globalCompositeOperation = "source-over";
+          g0.drawImage(tmp, 0, 0, bw, hh2, run, top2, bw, hh2);
+        } else g0.drawImage(s.img, Math.max(0, sx0), 0, Math.max(0.5, sw), s.img.height, run, top2, bw, hh2);
+        run = -1;
+      }
+    }
+    if (s.fire) { const rg = g0.createRadialGradient(s.sx, top2 + hh2 * 0.6, 2, s.sx, top2 + hh2 * 0.6, Math.max(6, 70 * pd / s.depth / 3)); rg.addColorStop(0, "rgba(255,170,70,.45)"); rg.addColorStop(1, "rgba(255,120,30,0)"); g0.save(); g0.globalCompositeOperation = "lighter"; g0.fillStyle = rg; g0.fillRect(0, 0, W, H); g0.restore(); }
+    if (s.name && s.depth < 140) { g0.font = "bold 7px monospace"; g0.textAlign = "center"; g0.fillStyle = "rgba(0,0,0,.8)"; g0.fillText(s.name, s.sx + 1, top2 - 2); g0.fillStyle = "#e0a33a"; g0.fillText(s.name, s.sx, top2 - 3); }
+    if (s.mob && s.mob.hp < hpOf(s.mob.kind) && s.mob.hp > 0 && s.depth < 160) { const bw2 = Math.max(8, ww2 * 0.8); g0.fillStyle = "rgba(0,0,0,.7)"; g0.fillRect(s.sx - bw2 / 2 - 1, top2 - 6, bw2 + 2, 4); g0.fillStyle = "#b8321f"; g0.fillRect(s.sx - bw2 / 2, top2 - 5, bw2 * s.mob.hp / hpOf(s.mob.kind), 2); }
+    if (s.mob && s.mob.state === "chase" && s.depth < 200) { g0.fillStyle = "#d9361f"; g0.fillRect(Math.round(s.sx) - 1, Math.round(top2) - 12, 2, 4); g0.fillRect(Math.round(s.sx) - 1, Math.round(top2) - 7, 2, 2); }
+  }
+  // étincelles et fouille
+  const proj = (wx, wy, up) => { const dx = wx - ox, dy = wy - oy, depth = dx * dirX + dy * dirY; if (depth < 4) return null; const lat = -dx * dirY + dy * dirX; return { x: W / 2 + lat / depth * pd, y: horizon + (eyeH - up) * pd / depth, depth }; };
+  for (const f of fxList) { if (f.ring) continue; const q = proj(f.x, f.y, 6); if (!q || q.x < 0 || q.x > W || zb[Math.floor(q.x)] < q.depth) continue; g0.globalAlpha = Math.max(0, 1 - f.t / f.life); g0.fillStyle = f.col; g0.fillRect(Math.round(q.x), Math.round(q.y), 2, 2); g0.globalAlpha = 1; }
+  if (searching) { const q = proj(searching.pos.x, searching.pos.y, 8); if (q) { const pa = 0.5 + 0.35 * Math.sin(now / 110); g0.fillStyle = "rgba(255,235,150," + pa + ")"; g0.fillRect(Math.round(q.x) - 1, Math.round(q.y) - 5, 2, 10); g0.fillRect(Math.round(q.x) - 5, Math.round(q.y) - 1, 10, 2); } }
+  // nuit, pluie
+  if (n > 0) { g0.fillStyle = "rgba(8,14,40," + (0.16 * n) + ")"; g0.fillRect(0, 0, W, H); }
+  if (wxr === 1) { g0.fillStyle = "rgba(20,30,45,.14)"; g0.fillRect(0, 0, W, H); g0.fillStyle = "rgba(190,210,230,.5)"; for (let i = 0; i < 70; i++) { const rx = (i * 53.7 + now * 0.05) % (W + 20), ry = (i * 97.3 + now * 0.45) % (H + 20); g0.fillRect(Math.round(W - rx), Math.round(ry), 1, 5); } }
+  drawHeldItems(now, W, H, n);
+  const vg = g0.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0," + (0.35 + 0.2 * n) + ")"); g0.fillStyle = vg; g0.fillRect(0, 0, W, H);
+  if (invuln > 1.5) { g0.fillStyle = "rgba(170,20,20," + Math.min(0.5, (invuln - 1.5) * 0.5) + ")"; g0.fillRect(0, 0, W, H); }
+  g0.fillStyle = "rgba(255,255,255,.55)"; g0.fillRect(Math.floor(W / 2) - 1, Math.floor(horizon) - 1, 2, 2);
+}
+let fxLast = 0;
+function drawHeldItems(now, W, H, n) {
+  const g0 = g, k = (weaponItem() || {}).k, bobx = P.moving ? Math.sin(bobT) * 3 : 0, boby = P.moving ? Math.abs(Math.sin(bobT)) * 3 : Math.sin(now / 900) * 0.8, sw = swing ? 1 - swing.t / 0.18 : 0, s = W / 224;
+  const skin = OPTIONS.skin[ch.skin] || "#e8bf9a", sleeve = OPTIONS.topc[ch.topc] || "#4a6a8a", R = (c, x, y, w, h) => { g0.fillStyle = c; g0.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+  g0.save(); g0.translate(W * 0.68 + bobx - sw * W * 0.3, H - 10 * s + boby + sw * 6); g0.rotate(-0.28 - sw * 1.1);
+  if (k) {
+    const wep = { hache: ["#6a4a22", "#9aa0a6", 44, 12], pieu: ["#8a6a3a", "#d8c8a0", 52, 5], batte: ["#8a6a3a", "#c8ced2", 46, 14], matraque: ["#2a2e38", "#6a7a9a", 40, 7] }[k] || ["#6a4a22", "#9aa0a6", 40, 8];
+    R(wep[0], -3 * s, -wep[2] * s, 6 * s, wep[2] * s); R(shade(wep[0], .2), -3 * s, -wep[2] * s, 1.5 * s, wep[2] * s);
+    if (k === "hache") { R(wep[1], -3 * s, -wep[2] * s, 14 * s, 11 * s); R("#c8ced2", -3 * s, -wep[2] * s, 14 * s, 2 * s); } else if (k === "batte") { R(wep[1], -5 * s, -wep[2] * s, 10 * s, 14 * s); for (let i = 0; i < 4; i++) R("#e6e6e0", (i % 2 ? 5 : -7) * s, (-wep[2] + 2 + i * 3) * s, 2 * s, 1.5 * s); } else if (k === "pieu") R(wep[1], -2 * s, -wep[2] * s - 3 * s, 4 * s, 5 * s);
+  }
+  R(skin, -6 * s, -4 * s, 12 * s, 10 * s); R(shade(skin, -.2), -6 * s, 3 * s, 12 * s, 3 * s); R(sleeve, -7 * s, 6 * s, 14 * s, 18 * s); R(shade(sleeve, -.3), 4 * s, 6 * s, 3 * s, 18 * s);
+  g0.restore();
+  if (torchT > 0) { const fl = 0.8 + 0.2 * Math.sin(now / 70), tx2 = W * 0.2 + bobx * 0.5, ty2 = H - 8 + boby; R("#6a4a22", tx2 - 2 * s, ty2 - 30 * s, 5 * s, 34 * s); R("#d9501a", tx2 - 4 * s, ty2 - 42 * s * fl, 9 * s, 12 * s * fl); R("#f2a51a", tx2 - 2 * s, ty2 - 40 * s * fl, 5 * s, 9 * s * fl); R("#fff0a0", tx2 - 1 * s, ty2 - 36 * s, 2 * s, 4 * s); const rg = g0.createRadialGradient(tx2, ty2 - 38 * s, 4, tx2, ty2 - 38 * s, W * 0.5); rg.addColorStop(0, "rgba(255,170,70,.35)"); rg.addColorStop(1, "rgba(255,120,30,0)"); g0.save(); g0.globalCompositeOperation = "lighter"; g0.fillStyle = rg; g0.fillRect(0, 0, W, H); g0.restore(); }
+}
+
 /* Vue du personnage : on voit seulement ce que le personnage voit (cône devant lui, les murs bloquent la vue) */
-let visMode = 1, faceAng = Math.PI / 2, visAng = Math.PI / 2;
-try { const vm = localStorage.getItem("brume-vue"); if (vm === "0") visMode = 0; } catch (e) {}
+let visMode = 2, faceAng = Math.PI / 2, visAng = Math.PI / 2;
+try { const vm = localStorage.getItem("brume-vue2"); if (vm === "0" || vm === "1" || vm === "2") visMode = Number(vm); } catch (e) {}
 const fogC = document.createElement("canvas"), fogG = fogC.getContext("2d");
 function opaqueTile(tx, ty) { if (tx < 0 || ty < 0 || tx >= MW || ty >= MH) return true; const t = map[ty][tx]; return t === BUILD || t === TREE || t === WALL || t === LAB || t === LABDOOR || t === GATE; }
 function castRay(ox, oy, ang, maxR) {
@@ -2379,6 +2668,7 @@ function drawFog(V, cx, cy, now) {
   g.save(); g.imageSmoothingEnabled = true; g.drawImage(fogC, 0, 0, VW, VH); g.restore(); g.imageSmoothingEnabled = false;
 }
 function render(now) {
+  if (visMode === 2) { renderFPS(now); return; }
   if (inside) {
     const icx = VW >= IW * TS ? -Math.round((VW - IW * TS) / 2) : Math.max(0, Math.min(IW * TS - VW, Math.round(P.x + 8 - VW / 2))), icy = VH >= IH * TS ? -Math.round((VH - IH * TS) / 2) : Math.max(0, Math.min(IH * TS - VH, Math.round(P.y + 8 - VH / 2)));
     g.fillStyle = "#050706"; g.fillRect(0, 0, VW, VH); g.save(); g.translate(-icx, -icy); g.drawImage(cur.canvas, 0, 0);
@@ -2396,6 +2686,7 @@ function render(now) {
     if (dark && torchT > 0) { const fl = 0.85 + 0.15 * Math.sin(now / 80), tg = g.createRadialGradient(sx, sy, 6, sx, sy, 110 * fl); tg.addColorStop(0, "rgba(255,170,70,.45)"); tg.addColorStop(1, "rgba(255,120,30,0)"); g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = tg; g.fillRect(0, 0, VW, VH); g.restore(); }
     return;
   }
+  if (visMode === 2) { renderFPS(now); return; }
   const cx = Math.max(0, Math.min(MW * TS - VW, Math.round(P.x + 8 - VW / 2)));
   const cy = Math.max(0, Math.min(MH * TS - VH, Math.round(P.y + 8 - VH / 2)));
   g.drawImage(world, cx, cy, VW, VH, 0, 0, VW, VH);
@@ -2484,7 +2775,7 @@ function render(now) {
 /* ---------- Multijoueur : une équipe de 2 à 4 joueurs sur plusieurs appareils ----------
    L'hôte fait tourner le monde (infectés, temps, feux, pièges) et envoie l'état aux autres.
    Chaque joueur garde son propre sac, sa faim et ses vies. */
-const GAME_VER = "3";
+const GAME_VER = "4";
 const net = { role: "solo", kind: "", me: "", max: 1, code: "", link: null, peers: new Map(), lobby: [], looks: {}, t: 0, joinTimer: 0 };
 const others = new Map();
 let mobCounter = 1000, fireId = 0;
@@ -2745,6 +3036,12 @@ const endStick = e => { if (e && e.pointerId !== stickId) return; stickId = null
 stick.addEventListener("pointerup", endStick); stick.addEventListener("pointercancel", endStick); stick.addEventListener("lostpointercapture", endStick);
 fastTap("bAct", doAction); fastTap("bCrouch", toggleCrouch); fastTap("bRun", toggleRun);
 
+// Tourner la tête : glisser le doigt (ou la souris) sur l'écran de jeu
+let lookId = null, lookX = 0;
+$("stage").addEventListener("pointerdown", e => { if (visMode !== 2 || e.target.closest("button, #stick, #bag, #mis, #talk, #tuto, #menu, #end")) return; lookId = e.pointerId; lookX = e.clientX; });
+$("stage").addEventListener("pointermove", e => { if (e.pointerId !== lookId) return; camAng += (e.clientX - lookX) * 0.013; lookX = e.clientX; });
+["pointerup", "pointercancel"].forEach(ev => $("stage").addEventListener(ev, e => { if (e.pointerId === lookId) lookId = null; }));
+
 /* ---------- Boutons de l'écran de création ---------- */
 $("name").addEventListener("input", e => { ch.name = e.target.value; });
 $("start").onclick = () => {
@@ -2759,7 +3056,7 @@ $("bSave").onclick = () => saveGame(false);
 $("bSnd").onclick = () => { sfx.init(); sfx.setMuted(!sfx.isMuted()); if (!sfx.isMuted()) sfx.pickup(); };
 $("cont").onclick = () => { $("creator").hidden = true; $("game").hidden = false; if (!loadGame()) { startGame(); if (staleSave) { staleSave = false; say("Ancienne sauvegarde : la carte a changé, nouvelle partie.", 6); } } };
 $("back").onclick = () => { if (isMP()) { mpLeave(); return; } saveGame(true); running = false; $("game").hidden = true; $("creator").hidden = false; buildCreator(); };
-$("bVue").textContent = "Vue : " + (visMode ? "personnage" : "large");
+$("bVue").textContent = "Vue : " + VUE_NOMS[visMode];
 buildCreator(); buildPlayers();
 // lien d'invitation : ?join=CODE ouvre directement l'écran « Rejoindre » avec le code déjà tapé
 (function () {
