@@ -82,11 +82,22 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .mission ul { margin: 4px 0 0; padding: 0; list-style: none; font-size: .92rem; color: var(--muted); }
 .mission li.ok { color: var(--fg); }
 #bag h2 span { color: var(--muted); font-size: 1.1rem; margin-left: 8px; }
-#slots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-.slot { font-family: var(--display); font-size: .85rem; letter-spacing: .05em; text-transform: uppercase; min-height: 42px; padding: 4px; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-left-width: 5px; border-radius: 8px; cursor: pointer; }
-.slot.empty { color: var(--line); cursor: default; }
-.slot.sel { border-color: var(--accent); }
-#bagInfo { min-height: 4.6em; font-size: .95rem; line-height: 1.45; color: var(--fg); }
+#slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.bhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.bhead h2 { margin: 0; }
+.slot { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 3px; font-family: var(--display); font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; line-height: 1.1; min-height: 84px; padding: 8px 4px 5px; color: var(--fg); background: var(--panel); border: 2px solid var(--line); border-top: 4px solid var(--c, var(--line)); border-radius: 10px; cursor: pointer; text-align: center; }
+.slot canvas { width: 44px; height: 44px; image-rendering: pixelated; flex: none; }
+.slot .cnt { position: absolute; top: 4px; right: 6px; font-style: normal; font-weight: 700; color: var(--accent); font-size: .9rem; text-shadow: 0 1px 2px #000; }
+.slot .eq { position: absolute; top: 3px; left: 6px; font-style: normal; color: #7ae0a0; font-weight: 700; }
+.slot .du { position: absolute; left: 6px; right: 6px; bottom: 3px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; }
+.slot .du::after { content: ""; display: block; height: 100%; width: var(--p, 100%); background: #7ae0a0; }
+#bfoot { position: sticky; bottom: -14px; z-index: 2; margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px 0 14px; background: #080c0a; border-top: 1px solid var(--line); }
+#craft { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+#craft button { text-align: left; }
+#craftBox summary { cursor: pointer; font-family: var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); padding: 6px 0; }
+.slot.empty { color: var(--line); cursor: default; min-height: 52px; border-style: dashed; border-top: 2px dashed var(--line); background: transparent; justify-content: center; }
+.slot.sel { border-color: var(--accent); border-top-color: var(--accent); box-shadow: 0 0 0 2px rgba(224,163,58,.35), 0 0 14px rgba(224,163,58,.25); background: rgba(224,163,58,.08); }
+#bagInfo { min-height: 4.6em; font-size: 1.02rem; line-height: 1.5; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
 #bagInfo b { color: var(--accent); font-family: var(--display); letter-spacing: .06em; text-transform: uppercase; font-size: 1.05rem; }
 .row2 { display: flex; gap: 8px; flex-wrap: wrap; }
 .row2 button { font-size: 1rem; padding: 10px 16px; }
@@ -209,11 +220,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
         <div class="row2"><button class="ghost" id="misClose" type="button">Fermer</button></div>
       </div>
       <div id="bag" hidden>
-        <h2>Sac à dos<span id="bagCount"></span></h2>
+        <div class="bhead"><h2>Sac à dos<span id="bagCount"></span></h2><button class="ghost" id="bClose" type="button">Fermer ✕</button></div>
         <div id="slots"></div>
-        <div id="bagInfo"></div>
-        <div id="craft" class="row2"></div>
-        <div class="row2"><button class="go" id="bUse" type="button" hidden></button><button class="ghost" id="bDrop" type="button" hidden>Jeter</button><button class="ghost" id="bClose" type="button">Fermer</button></div>
+        <details id="craftBox"><summary>Fabriquer (armes, feu, abri...)</summary><div id="craft"></div></details>
+        <div id="bfoot"><div id="bagInfo"></div><div class="row2"><button class="go" id="bUse" type="button" hidden></button><button class="ghost" id="bDrop" type="button" hidden>Jeter</button></div></div>
       </div>
       <div id="talk" hidden><div class="who" id="talkWho"></div><p id="talkText"></p><button class="go" id="talkNext" type="button">Suite</button></div>
       <div id="tuto" hidden>
@@ -1245,6 +1255,10 @@ function drawItemIcon(ctx, k, x, y, now) {
   else if (k === "piege") { R("#5a4a3a", 3, 8, 10, 5); R("#3a2c20", 3, 12, 10, 1); R("#c8ced2", 4, 4, 1, 4); R("#c8ced2", 7, 3, 1, 5); R("#c8ced2", 10, 4, 1, 4); R("#c8ced2", 5, 6, 1, 2); R("#c8ced2", 9, 6, 1, 2); }
   else if (k === "trousse") { R("#e6e6de", 3, 5, 10, 8); R("#b9bab2", 3, 12, 10, 1); R("#c0392b", 7, 6, 2, 6); R("#c0392b", 5, 8, 6, 2); R("#8a8a82", 6, 3, 4, 2); }
   else if (k === "matraque") { R("#2a2e38", 7, 2, 3, 11); R("#4a5060", 7, 2, 1, 11); R("#6a7a9a", 7, 11, 3, 3); }
+  else if (k === "note") { R("#e6ebdf", 4, 2, 8, 11); R("#b9bdb4", 4, 12, 8, 1); R("#6a6e66", 5, 4, 6, 1); R("#6a6e66", 5, 6, 6, 1); R("#6a6e66", 5, 8, 4, 1); R("#6a6e66", 5, 10, 5, 1); }
+  else if (k === "ours") { R("#a8683a", 4, 2, 3, 3); R("#a8683a", 9, 2, 3, 3); R("#c98a5a", 4, 4, 8, 7); R("#e0b080", 6, 7, 4, 3); R("#1a1204", 6, 5, 1, 1); R("#1a1204", 9, 5, 1, 1); R("#1a1204", 7, 8, 2, 1); R("#c98a5a", 3, 10, 3, 3); R("#c98a5a", 10, 10, 3, 3); }
+  else if (k === "cahier") { R("#f2c94a", 3, 2, 10, 12); R("#b8901a", 3, 2, 2, 12); R("#fff8d0", 6, 4, 5, 1); R("#fff8d0", 6, 6, 5, 1); R("#fff8d0", 6, 8, 3, 1); R("#6a4a22", 7, 11, 3, 2); }
+  else if (k === "sacado") { R("#2f5f9a", 4, 3, 8, 10); R("#4a8ad0", 5, 4, 6, 8); R("#2f5f9a", 3, 5, 1, 6); R("#2f5f9a", 12, 5, 1, 6); R("#e0c040", 6, 7, 4, 3); R("#8a8e8e", 7, 2, 2, 1); }
   else if (k === "hache") { R("#6a4a22", 7, 3, 2, 10); R("#9aa0a6", 4, 3, 5, 4); R("#c8ced2", 4, 3, 5, 1); R("#6a7076", 4, 6, 5, 1); }
   else if (k === "cle") { R("#d9c56a", 5, 4, 4, 4); R("#14100d", 6, 5, 2, 2); R("#d9c56a", 7, 8, 2, 6); R("#d9c56a", 9, 11, 2, 1); R("#d9c56a", 9, 13, 2, 1); }
   else if (k === "carnet") { R("#4a3220", 4, 4, 8, 9); R("#6a4a2a", 5, 4, 7, 9); R("#c9a24a", 6, 6, 4, 1); R("#c9a24a", 6, 8, 3, 1); }
@@ -1349,9 +1363,14 @@ function renderBag() {
   $("bagCount").textContent = bag.length + " / " + bagMax();
   const box = $("slots"); box.innerHTML = "";
   for (let i = 0; i < bagMax(); i++) {
-    const b = document.createElement("button"); b.type = "button"; b.className = "slot";
-    if (bag[i]) { b.textContent = ITEMS[bag[i].k].name + (bag[i].n > 1 ? " ×" + bag[i].n : "") + (bag[i].dur !== undefined ? " (" + bag[i].dur + ")" : "") + (WEAPONS[bag[i].k] && weapon === bag[i].k ? " ✓" : ""); b.style.borderLeftColor = ITEMS[bag[i].k].col; if (i === bagSel) b.classList.add("sel"); b.onclick = () => { bagSel = i; renderBag(); }; }
-    else { b.textContent = "vide"; b.className += " empty"; }
+    const b = document.createElement("button"); b.type = "button"; b.className = "slot"; const it0 = bag[i];
+    if (it0) {
+      const def0 = ITEMS[it0.k], ik = it0.k.startsWith("note") ? "note" : it0.k.startsWith("page") ? "carnet" : it0.k, wd = WEAPONS[it0.k];
+      b.style.setProperty("--c", def0.col);
+      b.innerHTML = '<canvas width="16" height="16"></canvas><span>' + def0.name + "</span>" + (it0.n > 1 ? '<i class="cnt">×' + it0.n + "</i>" : "") + (wd && weapon === it0.k ? '<i class="eq">✓</i>' : "") + (it0.dur !== undefined && wd ? '<i class="du" style="--p:' + Math.round(100 * it0.dur / wd.dur) + '%"></i>' : "");
+      drawItemIcon(b.querySelector("canvas").getContext("2d"), ik, 0, 0, 0);
+      if (i === bagSel) b.classList.add("sel"); b.onclick = () => { bagSel = i; renderBag(); };
+    } else { b.className += " empty"; b.disabled = true; }
     box.appendChild(b);
   }
   const it = bag[bagSel];
