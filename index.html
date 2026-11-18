@@ -1005,6 +1005,7 @@ const ITEMS = {
   cahier: { name: "Cahier de Mia", desc: "Un cahier de dessins aux pages froissées. Mia y tient beaucoup. Rapporte-le-lui.", col: "#f2c94a" },
   sacado: { name: "Sac à dos d'écolier", desc: "Un sac solide, resté à l'école. Une fois porté, ton sac gagne 4 places pour de bon.", use: "Le porter", col: "#4a8ad0" },
   note8: { name: "Mot de l'école", col: "#e6ebdf", text: "Mot sur le tableau, jour 2 : l'école est fermée jusqu'à nouvel ordre. Les élèves ont été évacués vers le sud, mais certains enfants se sont cachés. Si vous en trouvez un, ne le laissez pas seul." },
+  jerrican: { name: "Jerrican d'essence", desc: "Un bidon d'essence. Il en faut 2 pour redémarrer le groupe électrogène du laboratoire.", col: "#c0392b" },
   trousse: { name: "Trousse de soins", desc: "Bandages et désinfectant. Soigne une morsure : +1 vie (jusqu'au maximum de ta difficulté). Si une morsure te serait fatale, la trousse te sauve automatiquement. Rare : l'hôpital en contient 2 en facile, 1 en modéré et 1 en difficile.", use: "Se soigner", col: "#d9594a" },
   note6: { name: "Registre de l'hôpital", col: "#e6ebdf", text: "Registre des urgences, jour 5 : le service est fermé. Les patients mordus changent en quelques heures. Le Dr Vasseur est venu chercher des échantillons de sang. Il pense que la bactérie craint le froid : il a parlé de la chambre froide de son laboratoire." },
   ours: { name: "Ours en peluche", desc: "Un vieil ours usé. Mia y tient énormément.", col: "#c98a5a" },
@@ -1053,7 +1054,8 @@ PAGE_POS.forEach((p, i) => { const f = findFree(p[0], p[1]); basePickups.push({ 
   }
 })();
 
-[["radio", 30, 6, false], ["antenne", 44, 50, true], ["batterie", 18, 36, false], ["fusible", 76, 22, true]].forEach(a => { const f = findFree(a[1], a[2]); basePickups.push({ k: a[0], x: f.x, y: f.y, hidden: a[3] }); });
+[["radio", 30, 6, false], ["antenne", 44, 50, true], ["batterie", 18, 36, false], ["fusible", 76, 22, true], ["jerrican", 80, 12, false], ["jerrican", 88, 34, false], ["jerrican", 74, 54, false]].forEach(a => { const f = findFree(a[1], a[2]); basePickups.push({ k: a[0], x: f.x, y: f.y, hidden: a[3] }); });
+const GEN = { x: 101, y: 61 };
 
 // Cachettes : on peut fouiller les gravats et les voitures de la ville
 const spots = [];
@@ -1259,6 +1261,7 @@ function drawItemIcon(ctx, k, x, y, now) {
   else if (k === "piege") { R("#5a4a3a", 3, 8, 10, 5); R("#3a2c20", 3, 12, 10, 1); R("#c8ced2", 4, 4, 1, 4); R("#c8ced2", 7, 3, 1, 5); R("#c8ced2", 10, 4, 1, 4); R("#c8ced2", 5, 6, 1, 2); R("#c8ced2", 9, 6, 1, 2); }
   else if (k === "trousse") { R("#e6e6de", 3, 5, 10, 8); R("#b9bab2", 3, 12, 10, 1); R("#c0392b", 7, 6, 2, 6); R("#c0392b", 5, 8, 6, 2); R("#8a8a82", 6, 3, 4, 2); }
   else if (k === "matraque") { R("#2a2e38", 7, 2, 3, 11); R("#4a5060", 7, 2, 1, 11); R("#6a7a9a", 7, 11, 3, 3); }
+  else if (k === "jerrican") { R("#a82a22", 4, 4, 8, 9); R("#c8473b", 4, 4, 8, 1); R("#6a1a16", 4, 12, 8, 1); R("#c8c8c0", 5, 2, 4, 2); R("#e8a0a0", 5, 6, 1, 5); R("#1a1204", 7, 7, 3, 3); R("#f2c94a", 8, 8, 1, 1); }
   else if (k === "note") { R("#e6ebdf", 4, 2, 8, 11); R("#b9bdb4", 4, 12, 8, 1); R("#6a6e66", 5, 4, 6, 1); R("#6a6e66", 5, 6, 6, 1); R("#6a6e66", 5, 8, 4, 1); R("#6a6e66", 5, 10, 5, 1); }
   else if (k === "ours") { R("#a8683a", 4, 2, 3, 3); R("#a8683a", 9, 2, 3, 3); R("#c98a5a", 4, 4, 8, 7); R("#e0b080", 6, 7, 4, 3); R("#1a1204", 6, 5, 1, 1); R("#1a1204", 9, 5, 1, 1); R("#1a1204", 7, 8, 2, 1); R("#c98a5a", 3, 10, 3, 3); R("#c98a5a", 10, 10, 3, 3); }
   else if (k === "cahier") { R("#f2c94a", 3, 2, 10, 12); R("#b8901a", 3, 2, 2, 12); R("#fff8d0", 6, 4, 5, 1); R("#fff8d0", 6, 6, 5, 1); R("#fff8d0", 6, 8, 3, 1); R("#6a4a22", 7, 11, 3, 2); }
@@ -1283,7 +1286,7 @@ function setView() {
   if (cv.width !== VW) cv.width = VW; if (cv.height !== VH) cv.height = VH; cv.style.aspectRatio = VW + " / " + VH; if ($("bZoom")) $("bZoom").textContent = "Zoom : " + ZOOMS[zoomI][0]; }
 setView(); window.addEventListener("resize", setView); window.addEventListener("orientationchange", () => setTimeout(setView, 200));
 let P, mobs = [], pickups = [], bag = [], looted = new Set(), inside = null, cur = null, saved = null, curSolid = solidWorld;
-let pages = new Set(), missions = {}, prog = { card: false, wall: false }, miaSkill = false, lureCd = 0, misOpen = false;
+let pages = new Set(), missions = {}, prog = { card: false, wall: false, labOpen: false, fuelIn: 0, power: false }, miaSkill = false, lureCd = 0, misOpen = false;
 let marc = null, marcWarn = 0, radioFixed = false;
 let mia = null, miaWarn = 0, talkOpen = false, talkLines = [], talkI = 0, talkDone = null;
 let saveT = 0, stepT = 0, hordeFlags = {}, D = null, lives = 1, invuln = 0;
@@ -1302,7 +1305,8 @@ function startGame() {
   gatePos.forEach(([x, y]) => { if (map[y][x] !== GATE) { map[y][x] = GATE; paintTile(x, y); } });
   for (const d of doors.values()) d.locked = d.lockedBase;
   marc = null; radioFixed = false; if (svShown) { svShown = false; paintTile(svDoor.x - 1, svDoor.y); }
-  mia = null; missions = { main: "active" }; pages = new Set(); prog = { card: false, wall: false }; miaSkill = false; lureCd = 0; misOpen = false; $("mis").hidden = true; if (bearShown) { bearShown = false; paintTile(bearDoor.x - 1, bearDoor.y); } bigBag = false; charm = false; if (schoolShown) { schoolShown = false; paintTile(schoolDoor.x - 1, schoolDoor.y); }
+  gen = null; alarm = null;
+  mia = null; missions = { main: "active" }; pages = new Set(); prog = { card: false, wall: false, labOpen: false, fuelIn: 0, power: false }; miaSkill = false; lureCd = 0; misOpen = false; $("mis").hidden = true; if (bearShown) { bearShown = false; paintTile(bearDoor.x - 1, bearDoor.y); } bigBag = false; charm = false; if (schoolShown) { schoolShown = false; paintTile(schoolDoor.x - 1, schoolDoor.y); }
   talkOpen = false; $("talk").hidden = true; bag = []; looted = new Set(); inside = null; cur = null; curSolid = solidWorld; crouch = false; run = false; stam = 100; sprinting = false; tired = false; hunger = 100; radio = true; bagOpen = false; bagSel = -1;
   $("bCrouch").setAttribute("aria-pressed", "false"); $("bRun").setAttribute("aria-pressed", "false"); $("bag").hidden = true; $("bMia").hidden = true;
   $("hName").textContent = ch.name || "Toi"; $("end").hidden = true; ended = false;
@@ -1315,7 +1319,9 @@ function goalInfo() {
   if (!prog.card) { n = 1; t = "trouve la carte d'accès à la pharmacie (croix verte)"; tx = pharm.x; ty = pharm.y; }
   else if (missions.pages !== "done") { n = 2; t = "trouve les 5 pages du carnet (touche Fouiller près des objets brillants)"; }
   else if (!prog.wall) { n = 3; t = "passe le grand mur à l'est (portail avec clé, ou corde)"; let bd = 1e9; gatePos.forEach(([gx, gy]) => { const dd = Math.abs(gy * TS - P.y); if (dd < bd) { bd = dd; tx = gx; ty = gy; } }); }
-  else { n = 4; t = "va au laboratoire, tout à l'est, et ouvre la porte"; tx = LDX; ty = LDY; }
+  else if (!prog.labOpen) { n = 4; t = "va au laboratoire, tout à l'est, et ouvre la porte"; tx = LDX; ty = LDY; }
+  else if (prog.fuelIn < 2 && countItem("jerrican") < 2) { n = 5; t = "trouve 2 jerricans d'essence dans la forêt (" + countItem("jerrican") + "/2)"; let bd = 1e9; pickups.forEach(q => { if (q.k !== "jerrican" || q.got) return; const dd = Math.hypot(q.x * TS - P.x, q.y * TS - P.y); if (dd < bd) { bd = dd; tx = q.x; ty = q.y; } }); }
+  else { n = 6; t = "va au groupe électrogène, à l'ouest du labo, et démarre-le"; tx = GEN.x; ty = GEN.y; }
   return { n, t, tx, ty };
 }
 function say(t, sec) { $("msg").textContent = t; msgT = sec || 2.6; }
@@ -1346,7 +1352,7 @@ function end(win) {
 
 /* Sac à dos */
 function lootAdd(k) { looted.add(k); net.ev("loot", { k }); }
-const STACK = { conserve: 4, eau: 4, corde: 3, cle: 3, bois: 12, clous: 10, torche: 4, piege: 4, trousse: 3 };
+const STACK = { conserve: 4, eau: 4, corde: 3, cle: 3, bois: 12, clous: 10, torche: 4, piege: 4, trousse: 3, jerrican: 3 };
 let bigBag = false, charm = false;
 const bagMax = () => 20 + (marc ? 4 : 0) + (bigBag ? 4 : 0);
 function addItem(k) {
@@ -1507,6 +1513,7 @@ const sfx = (() => {
     heartbeat() { tone("sine", 62, 46, 0.13, 0.28); tone("sine", 54, 40, 0.11, 0.22, 0.17); },
     breath() { burst(0.45, "bandpass", 900, 1500, 1.2, 0.1); burst(0.5, "bandpass", 1300, 700, 1.2, 0.08, 0.5); },
     sting(v) { if (v <= 0.05) return; tone("sawtooth", 260, 820, 0.35, 0.11 * v, 0, [11, 40], 2400); burst(0.22, "highpass", 2600, 0, 1, 0.07 * v, 0.03); },
+    siren() { tone("square", 520, 760, 0.45, 0.07, 0, null, 1800); tone("square", 760, 520, 0.45, 0.07, 0.45, null, 1800); },
     rustle() { burst(0.12, "bandpass", 2600, 1500, 0.8, 0.1); burst(0.1, "bandpass", 2300, 1400, 0.8, 0.08, 0.1); },
     pickup() { tone("sine", 660, 880, 0.14, 0.12); tone("sine", 990, 1200, 0.16, 0.1, 0.1); },
     craft() { for (let i = 0; i < 3; i++) { burst(0.06, "bandpass", 900, 600, 4, 0.22, i * 0.18); tone("triangle", 240, 150, 0.07, 0.1, i * 0.18); } },
@@ -1741,6 +1748,7 @@ function attack() {
   moveEntity(tgt, Math.cos(ang) * kb, Math.sin(ang) * kb, solidWorld);
   tgt.hp -= W.dmg; tgt.stun = big ? Math.min(W.stun, 0.55) : W.stun; tgt.state = "chase"; sfx.hit(); shakeT = Math.max(shakeT, 0.18); bleed(tgt.x + 8, tgt.y + 8);
   wearWeapon(wi.k);
+  if (tgt.hp <= 0 && kills >= 9 && missions.hunter !== "done") { missions.hunter = "done"; if (addItem("trousse")) { toast("Chasseur : +1 trousse", "trousse"); } }
   if (tgt.hp <= 0) { addCorpse({ x: tgt.x, y: tgt.y, t: 0, kind: tgt.kind, s: tgt.seed }); mobs = mobs.filter(e => e !== tgt); kills++; say("Tu abats un infecté (" + kills + ").", 1.8); }
   noise(90, tgt);
 }
@@ -1769,7 +1777,8 @@ fastTap("bHit", attack);
 /* Missions */
 function renderMissions() {
   const has = k => bag.some(i => i.k === k);
-  const list = [{ t: "Atteindre le laboratoire", d: "Trouve le remède, tout à l'est, après la forêt.", steps: [["Récupérer la carte d'accès (pharmacie à la croix verte)", prog.card], ["Trouver le code (les 5 pages du carnet)", missions.pages === "done"], ["Savoir où est le labo (boussole)", radio], ["Franchir le grand mur", prog.wall], ["Ouvrir la porte du labo", false]] }];
+  const list = [{ t: "Atteindre le laboratoire", d: "Trouve le remède, tout à l'est, après la forêt.", steps: [["Récupérer la carte d'accès (pharmacie à la croix verte)", prog.card], ["Trouver le code (les 5 pages du carnet)", missions.pages === "done"], ["Franchir le grand mur", prog.wall], ["Ouvrir la porte du labo", prog.labOpen], ["Trouver 2 jerricans d'essence (" + Math.min(2, countItem("jerrican") + prog.fuelIn) + "/2)", prog.fuelIn >= 2], ["Démarrer le groupe électrogène (alarme !)", prog.power]] }];
+  list.push({ t: "Chasseur", done: missions.hunter === "done", d: "Les infectés sont partout. Abats-en 10 pour gagner une trousse de soins.", steps: [["Infectés abattus : " + Math.min(10, kills) + "/10", kills >= 10]] });
   if (missions.ours) list.push({ t: "L'ours de Mia", done: missions.ours === "done", d: "Mia a perdu son ours en peluche. Cherche l'immeuble au ruban rose.", steps: [["Fouiller l'immeuble au ruban rose", has("ours") || missions.ours === "done"], ["Rendre l'ours à Mia", missions.ours === "done"]] });
   if (missions.cahier) list.push({ t: "Le cahier de Mia", done: missions.cahier === "done", d: "Mia a oublié son cahier de dessins à son école : l'immeuble au ruban jaune (porte verrouillée).", steps: [["Ouvrir la porte de l'école (clé)", !schoolDoor.locked || missions.cahier === "done"], ["Trouver le cahier de Mia", has("cahier") || missions.cahier === "done"], ["Rapporter le cahier à Mia", missions.cahier === "done"]] });
   if (missions.radio) list.push({ t: "Le signal radio", done: missions.radio === "done", d: "Une radio cassée traîne en ville. Trouve trois pièces et répare-la.", steps: [["Antenne", radioFixed || bag.some(i => i.k === "antenne")], ["Batterie", radioFixed || bag.some(i => i.k === "batterie")], ["Fusible", radioFixed || bag.some(i => i.k === "fusible")], ["Réparer la radio (sac à dos)", radioFixed]] });
@@ -1844,10 +1853,46 @@ function lure(now) {
 }
 fastTap("bMia", () => lure());
 
+function openLab() {
+  prog.labOpen = true; takeItem("carte"); net.ev("lab", {}); missions.final = "active";
+  showDialog("Laboratoire", [
+    "Le badge passe, le code est bon. La lourde porte glisse... et une obscurité totale s'ouvre devant toi.",
+    "Au fond, la chambre froide est verrouillée : sans courant, impossible de l'ouvrir. Une étiquette sur le mur : « Groupe électrogène à l'ouest du bâtiment. Réservoir vide. »",
+    "Il faut 2 jerricans d'essence. Des bidons rouges ont été laissés dans la forêt, près des cabanes. Mais attention : le moteur est bruyant, et ça va attirer du monde."
+  ], () => say("Nouvelle étape : trouve 2 jerricans d'essence.", 5));
+}
+function startAlarm() {
+  if (isGuest()) { net.toHost({ t: "alarm" }); return; }
+  if (!alarm) alarm = { t: 0, next: 0, wave: 0 };
+}
+function spawnWave(w) {
+  const cx = GEN.x * TS + 8, cy = GEN.y * TS + 8, n = 3 + Math.min(4, w); let made = 0;
+  for (let tries = 0; tries < 120 && made < n; tries++) {
+    const a = Math.random() * 6.283, dist = 170 + Math.random() * 90, tx = Math.floor((cx + Math.cos(a) * dist) / TS), ty = Math.floor((cy + Math.sin(a) * dist) / TS);
+    if (tx < 2 || ty < 2 || tx >= MW - 2 || ty >= MH - 2 || solidWorld(tx, ty)) continue;
+    const kind = made === 0 && w % 2 === 1 ? "brute" : Math.random() < 0.3 ? "fast" : "normal";
+    mobs.push({ x: tx * TS, y: ty * TS, dir: "down", state: "chase", t: 0, vx: 0, vy: 0, fi: 0, seed: -1, id: ++mobCounter, kind, hp: hpOf(kind), stun: 0, alert: 9, scr: 0, horde: true }); made++;
+  }
+}
+function startGen() {
+  if (prog.power || gen) return;
+  if (prog.fuelIn < 2) { takeItem("jerrican"); takeItem("jerrican"); prog.fuelIn = 2; net.ev("fuelin", {}); }
+  gen = { t: 0, dur: 24 }; startAlarm(); sfx.ignite(); $("sLabel").textContent = "Démarrage du groupe..."; $("sFill").style.width = "0%"; $("sBar").hidden = false;
+  say("ALARME ! Les infectés arrivent. Reste près du groupe jusqu'à ce que la barre soit pleine.", 5);
+}
+function genStep(dt) {
+  if (alarm && !isGuest()) { alarm.t += dt; alarm.next -= dt; if (alarm.next <= 0) { spawnWave(alarm.wave++); alarm.next = 6.5; } if (alarm.t > 60 || prog.power) alarm = null; }
+  if (!gen) return;
+  const near = Math.hypot(P.x - GEN.x * TS, P.y - GEN.y * TS) < 52 && !inside;
+  if (near && !ended) gen.t += dt; else if (!near) { genWarn -= dt; if (genWarn <= 0) { genWarn = 4; say("Retourne près du groupe électrogène !", 2.4); } }
+  gen.s = (gen.s || 0) - dt; if (gen.s <= 0) { gen.s = 2.2; sfx.siren(); }
+  $("sFill").style.width = Math.min(100, gen.t / gen.dur * 100) + "%"; $("sBar").hidden = false;
+  if (gen.t >= gen.dur) { gen = null; $("sBar").hidden = true; prog.power = true; net.ev("power", {}); finale(); }
+}
 function finale() {
   const withMia = !!mia, bear = missions.ours === "done";
   const lines = [
-    "La porte du laboratoire s'ouvre dans un souffle froid. Les lumières se rallument une à une, dans un bourdonnement.",
+    "Le groupe électrogène tousse, puis vrombit. Les néons du laboratoire se rallument un à un, et la porte de la chambre froide s'ouvre dans un souffle glacé.",
     "Au fond de la chambre froide, des flacons alignés sous une vitre givrée. Une étiquette : « Remède, lot 21. »"
   ];
   if (withMia) lines.push(
@@ -1909,7 +1954,7 @@ function hordeCheck(nf) {
 
 /* Tutoriel : 6 images illustrées */
 const TUTO = [
-  { t: "Le but du jeu", d: "Une bactérie a transformé la ville en piège. Le Dr Vasseur a fabriqué un remède dans son laboratoire, tout à l'est, après la forêt. Pour ouvrir la porte du labo, il faut la carte d'accès ET le code. Une flèche en haut te montre toujours la prochaine étape.", draw: g => {
+  { t: "Le but du jeu", d: "Une bactérie a transformé la ville en piège. Le Dr Vasseur a fabriqué un remède dans son laboratoire, tout à l'est, après la forêt. Pour ouvrir la porte du labo, il faut la carte d'accès ET le code. Ensuite il faudra rallumer le courant du labo en survivant à une alarme. Une flèche en haut te montre toujours la prochaine étape.", draw: g => {
     g.fillStyle = "#101612"; g.fillRect(0, 0, 320, 180);
     const steps = [["carte", "1  PHARMACIE", "la carte d'accès"], ["carnet", "2  CARNET", "5 pages = le code"], ["clous", "3  GRAND MUR", "portail ou corde"], ["radio", "4  LABORATOIRE", "le remède"]];
     steps.forEach((st, i) => {
@@ -1919,7 +1964,7 @@ const TUTO = [
       if (i < 3) { g.fillStyle = "#e0a33a"; g.beginPath(); g.moveTo(x + 76, 60); g.lineTo(x + 70, 55); g.lineTo(x + 70, 65); g.fill(); }
     });
     g.fillStyle = "rgba(8,12,10,.9)"; g.fillRect(20, 124, 280, 40); g.strokeStyle = "#e0a33a"; g.strokeRect(20.5, 124.5, 279, 39);
-    tutoText(g, "ÉTAPE 1/4 : trouve la carte d'accès...   ↗ 120 m", 160, 144, "#e6ebdf", 8, "center");
+    tutoText(g, "ÉTAPE 1/6 : trouve la carte d'accès...   ↗ 120 m", 160, 144, "#e6ebdf", 8, "center");
   } },
   { t: "Te déplacer", d: "Pousse le joystick, en bas à gauche, pour avancer. Glisse ton doigt sur l'écran pour tourner la tête : tu vois ce que voit ton personnage. Suis la flèche en haut de l'écran : elle te guide vers ta prochaine étape. Tu es le personnage : tu vois ce qu'il voit.", draw: g => {
     tutoBg(g, 0, 0); spr2(g, gg => drawChar(gg, ch, "right", 1, 0, 0), 140, 78);
@@ -2081,7 +2126,8 @@ function contextAction() {
   const dl = Math.hypot(fx - (LDX + 1) * TS, fy - (LDY + 1) * TS);
   if (dl < 26) cands.push({ d: dl - 100, label: "Ouvrir le labo", run: () => {
     const card = bag.some(i => i.k === "carte") || (isMP() && prog.card), code = missions.pages === "done";
-    if (card && code) finale();
+    if (prog.labOpen) { say("Le labo est ouvert mais sans courant. Le groupe électrogène est à l'ouest du bâtiment.", 3.8); return; }
+    if (card && code) openLab();
     else say(!card && !code ? "Il faut la carte d'accès ET le code. Cherche la pharmacie et les pages du carnet." : !card ? "Le code est bon, mais il manque la carte d'accès (pharmacie à la croix verte)." : "La carte est reconnue, mais il faut aussi le code. Trouve les 5 pages du carnet.", 4.2);
   } });
   for (const p of pickups) {
@@ -2121,6 +2167,10 @@ function contextAction() {
     const wood = bag.some(i => i.k === "bois");
     if (wood && (f.t < 80 || nightF() < 0.5)) cands.push({ d: dd - 60, label: "Ajouter du bois", run: () => { if (takeItem("bois")) { if (isGuest()) net.toHost({ t: "firewood", id: f.id }); else f.t = Math.min(400, f.t + 100); say("Le feu repart.", 1.6); } } });
     else if (nightF() > 0.5) cands.push({ d: dd - 60, label: "Se reposer", run: rest });
+  }
+  if (prog.labOpen && !prog.power && !gen) {
+    const dg = Math.hypot(fx - (GEN.x * TS + 8), fy - (GEN.y * TS + 8));
+    if (dg < 30) cands.push({ d: dg - 80, label: prog.fuelIn >= 2 || countItem("jerrican") >= 2 ? "Démarrer le groupe" : "Groupe vide (" + countItem("jerrican") + "/2)", run: () => { if (prog.fuelIn >= 2 || countItem("jerrican") >= 2) startGen(); else say("Il faut 2 jerricans d'essence. Tu en as " + countItem("jerrican") + ".", 3); } });
   }
   // arbres : branches (sans hache) ou abattre (avec hache)
   const hasAxe = bag.some(i => i.k === "hache"), ftx = Math.floor(fx / TS), fty = Math.floor(fy / TS);
@@ -2188,6 +2238,7 @@ function searchStep(dt) {
   $("sFill").style.width = Math.min(100, s2.t / s2.dur * 100) + "%";
   if (s2.t >= s2.dur) { searching = null; $("sBar").hidden = true; sfx.chestOpen(s2.found); if (s2.found) sparkle(s2.pos.x, s2.pos.y); s2.onDone(); }
 }
+let gen = null, alarm = null, genWarn = 0;
 let actNow = null;
 function doAction() { if (actNow) actNow.run(); }
 
@@ -2200,7 +2251,7 @@ function loop(now) {
     if (lureCd > 0) lureCd = Math.max(0, lureCd - dt);
     invuln = Math.max(0, invuln - dt);
     clock += dt; hitCd = Math.max(0, hitCd - dt); if (swing) { swing.t -= dt; if (swing.t <= 0) swing = null; }
-    searchStep(dt); fxStep(dt); shakeT = Math.max(0, shakeT - dt); hurtT = Math.max(0, hurtT - dt);
+    searchStep(dt); fxStep(dt); genStep(dt); shakeT = Math.max(0, shakeT - dt); hurtT = Math.max(0, hurtT - dt);
     if (lives < D.lives && !ended) { vitalT -= dt; if (vitalT <= 0) { vitalT = 0.95; sfx.heartbeat(); } }
     if ((tired || (sprinting && stam < 35)) && !ended) { breathT -= dt; if (breathT <= 0) { breathT = 1.3; sfx.breath(); } }
     idleT = P.moving ? 0 : idleT + dt; $("bMove").hidden = idleT > 1.2 && !crouch && !run && !inside;
@@ -2328,7 +2379,7 @@ function loop(now) {
       $("hDir").textContent = arrowFor(ddx, ddy);
       $("hDist").textContent = Math.round(Math.hypot(ddx, ddy) / TS * 2) + " m";
     } else if (!radio) { $("hDir").textContent = "?"; $("hDist").textContent = ""; }
-    const gi = goalInfo(), gt = "Étape " + gi.n + "/4 : " + gi.t;
+    const gi = goalInfo(), gt = "Étape " + gi.n + "/6 : " + gi.t;
     if ($("goalT").textContent !== gt) $("goalT").textContent = gt;
     let ga = "";
     if (gi.tx !== null && !inside) { const ddx = gi.tx * TS + 8 - (P.x + 8), ddy = gi.ty * TS + 8 - (P.y + 8); ga = arrowFor(ddx, ddy) + " " + Math.round(Math.hypot(ddx, ddy) / TS * 2) + " m"; }
@@ -2647,9 +2698,9 @@ function hudCompass(c, w, ang, gi) {
   }
 }
 function hudObjective(c, w, gi) {
-  const sh = ["", "Trouve la carte d'accès (pharmacie)", "Trouve les 5 pages du carnet", "Passe le grand mur à l'est", "Va au laboratoire"][gi.n];
+  const sh = ["", "Trouve la carte d'accès (pharmacie)", "Trouve les 5 pages du carnet", "Passe le grand mur à l'est", "Va au laboratoire", "Trouve 2 jerricans d'essence", "Démarre le groupe électrogène"][gi.n];
   let dist = ""; if (gi.tx !== null && !inside) dist = " · " + Math.round(Math.hypot(gi.tx * TS + 8 - (P.x + 8), gi.ty * TS + 8 - (P.y + 8)) / TS * 2) + " m";
-  const t = (gi.n + "/4  " + sh + dist).toUpperCase(); c.font = "700 13px " + HFONT; const tw = Math.min(w - 20, c.measureText(t).width + 18), x = (w - tw) / 2;
+  const t = (gi.n + "/6  " + sh + dist).toUpperCase(); c.font = "700 13px " + HFONT; const tw = Math.min(w - 20, c.measureText(t).width + 18), x = (w - tw) / 2;
   c.fillStyle = "rgba(6,10,8,.6)"; c.fillRect(x, 40, tw, 20); c.fillStyle = "#e0a33a"; c.fillRect(x, 40, 3, 20); hudText(c, t, w / 2, 55, "#f2ede0", 13, "center", true);
 }
 const hudHeart = (c, x, y, full) => { c.fillStyle = full ? "#e0384a" : "rgba(255,255,255,.2)"; [[1, 0, 2, 1], [4, 0, 2, 1], [0, 1, 7, 2], [1, 3, 5, 1], [2, 4, 3, 1], [3, 5, 1, 1]].forEach(([a, b, w2, h2]) => c.fillRect(x + a * 2.4, y + b * 2.4, w2 * 2.4, h2 * 2.4)); if (full) { c.fillStyle = "rgba(255,255,255,.55)"; c.fillRect(x + 2.4, y + 2.4, 2.4, 2.4); } };
@@ -2858,7 +2909,7 @@ function render(now) {
 /* ---------- Multijoueur : une équipe de 2 à 4 joueurs sur plusieurs appareils ----------
    L'hôte fait tourner le monde (infectés, temps, feux, pièges) et envoie l'état aux autres.
    Chaque joueur garde son propre sac, sa faim et ses vies. */
-const GAME_VER = "5";
+const GAME_VER = "6";
 const net = { role: "solo", kind: "", me: "", max: 1, code: "", link: null, peers: new Map(), lobby: [], looks: {}, t: 0, joinTimer: 0 };
 const others = new Map();
 let mobCounter = 1000, fireId = 0;
@@ -2925,6 +2976,9 @@ function applyEv(k, d) {
     case "shelter": buildShelter(d.x0, d.y0); break;
     case "corpse": corpses.push({ x: d.x, y: d.y, t: 0, kind: d.kind, s: d.s }); break;
     case "card": prog.card = true; break;
+    case "lab": prog.labOpen = true; missions.final = "active"; say("Un équipier a ouvert le laboratoire. Il faut rallumer le courant.", 4); break;
+    case "fuelin": prog.fuelIn = 2; break;
+    case "power": prog.power = true; gen = null; $("sBar").hidden = true; break;
     case "page": pages.add(d.i); if (!missions.pages) missions.pages = "active"; if (pages.size === 5) missions.pages = "done"; say("Un équipier a trouvé une page du carnet (" + pages.size + " sur 5).", 3.5); break;
     case "win": if (!ended) end(true); break;
     case "say": say(d.m, 3.5); if (d.r) sfx.roar(0.7); break;
@@ -2945,6 +2999,7 @@ function onNetMsg(id, m) {
       case "noise": noiseAt(m.x, m.y, m.r); break;
       case "stunNear": mobs.forEach(o => { if (Math.hypot(o.x - m.x, o.y - m.y) < 46) o.stun = Math.max(o.stun, 1.6); }); break;
       case "calm": mobs.forEach(e => { if (e.state === "chase" && Math.hypot(e.x - m.x, e.y - m.y) < 260) { e.state = "wander"; e.t = 0; } }); break;
+      case "alarm": startAlarm(); break;
       case "fire": fires.push({ id: ++fireId, x: m.x, y: m.y, t: 220 }); break;
       case "firewood": { const f = fires.find(q => q.id === m.id); if (f) f.t = Math.min(400, f.t + 100); break; }
       case "trap": traps.push({ x: m.x, y: m.y }); break;
