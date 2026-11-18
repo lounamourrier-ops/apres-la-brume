@@ -106,7 +106,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 #talk p { font-size: 1rem; line-height: 1.45; }
 #talk button { align-self: flex-end; }
 #tuto { position: fixed; inset: 0; z-index: 50; background: rgba(8,12,10,.98); padding-block: 16px; padding-left: max(16px, calc((100vw - 760px) / 2)); padding-right: max(16px, calc((100vw - 760px) / 2)); display: flex; flex-direction: column; gap: 10px; overflow: auto; }
-#tutoCv { width: 100%; max-height: 52%; aspect-ratio: 16 / 9; object-fit: contain; image-rendering: pixelated; border: 1px solid var(--line); border-radius: 10px; background: #000; }
+#tutoCv { width: 100%; max-height: 52%; aspect-ratio: 16 / 9; object-fit: contain; image-rendering: auto; border: 1px solid var(--line); border-radius: 10px; background: #000; }
 #tuto .who { font-family: var(--display); font-size: 1.3rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
 #tuto p { font-size: 1rem; line-height: 1.45; }
 #tutoDots { display: flex; gap: 6px; align-items: center; }
@@ -231,7 +231,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
       </div>
       <div id="talk" hidden><div class="who" id="talkWho"></div><p id="talkText"></p><button class="go" id="talkNext" type="button">Suite</button></div>
       <div id="tuto" hidden>
-        <canvas id="tutoCv" width="320" height="180"></canvas>
+        <canvas id="tutoCv" width="1280" height="720"></canvas>
         <div class="who" id="tutoT"></div>
         <p id="tutoD"></p>
         <div class="rowb"><button class="ghost" id="tutoPrev" type="button">Précédent</button><span id="tutoDots"></span><button class="go" id="tutoNext" type="button">Suivant</button></div>
@@ -581,7 +581,7 @@ const byOf = y => ((y - 3) % 9 + 9) % 9;
 function blockInfo(x, y) { return [Math.floor((x - 3) / 10), Math.floor((y - 3) / 9)]; }
 const blocker = (x, y) => hh(x, y, 2) < 0.07;
 // Village : les maisons ont des formes variées (L, T, U, deux maisons, petite maison avec jardin...)
-const MAPV = 3;
+const MAPV = 4;
 const SHAPES = [
   ["111111", "111111", "111111", "111111", "111111"],
   ["111000", "111000", "111111", "111111", "111111"],
@@ -592,9 +592,21 @@ const SHAPES = [
   ["000000", "011110", "011110", "011110", "000000"],
   ["001100", "001100", "001100", "001100", "001100"],
   ["011111", "011111", "011100", "011100", "011100"],
-  ["111110", "111110", "001110", "001110", "001110"]
+  ["111110", "111110", "001110", "001110", "001110"],
+  ["110110", "110110", "110110", "110110", "110110"],
+  ["111111", "111111", "000000", "111111", "111111"],
+  ["111011", "111011", "000000", "110111", "110111"]
 ];
 const shapeOf = (ix, iy) => { const r = hh(ix, iy, 301); return SHAPES[r < 0.16 ? 0 : Math.min(SHAPES.length - 1, 1 + Math.floor((r - 0.16) / 0.84 * (SHAPES.length - 1)))]; };
+// Maisons collées : chaque bloc est découpé en plusieurs maisons (couleur, hauteur et toit différents)
+const SEGP = [[0, 0, 1, 1, 2, 2], [0, 0, 0, 1, 1, 1], [0, 0, 1, 1, 1, 1], [0, 0, 0, 0, 1, 1], [0, 1, 1, 2, 2, 2], [0, 0, 1, 1, 2, 3]];
+function houseSeg(x, y) { const bx = ((x - 3) % 10 + 10) % 10, [ix, iy] = blockInfo(x, y), pat = SEGP[Math.floor(hh(ix, iy, 310) * SEGP.length)], by = byOf(y); const sg = pat[Math.max(0, Math.min(5, bx - 1))] + (by >= 4 && hh(ix, iy, 312) < 0.4 ? 4 : 0); return { ix, iy, sg, key: ix * 8 + sg }; }
+function houseV(x, y) { const h = houseSeg(x, y); return Math.floor(hh(h.key, h.iy, 6) * 8); }
+function houseHgt(x, y) {
+  const h = houseSeg(x, y), base = [18, 22, 26][Math.floor(hh(h.key, h.iy, 315) * 3)], bx = ((x - 3) % 10 + 10) % 10;
+  const left = houseSeg(x - 1, y).key === h.key && map[y] && map[y][x - 1] === BUILD, right = houseSeg(x + 1, y).key === h.key && map[y] && map[y][x + 1] === BUILD;
+  return Math.min(26, base + (left && right ? 4 : 0));
+}
 const GARDEN = new Set(), FOUNT = new Set(), PLAZA = new Set(), ORCH = new Set();
 for (let y = 0; y < MH; y++) {
   const row = [];
@@ -617,7 +629,7 @@ for (let y = 0; y < MH; y++) {
     } else {
       const [ix, iy] = blockInfo(x, y), roll = hh(ix, iy, 3);
       const inner = bx >= 1 && bx <= 6 && by >= 1 && by <= 5;
-      if (roll < 0.25) {
+      if (roll < 0.12) {
         const pk = hh(ix, iy, 302), kk = y * MW + x;
         if (!inner) t = WALK;
         else if (pk < 0.3) { t = (bx === 3 && by === 3) ? TREE : WALK; if (t === TREE) FOUNT.add(kk); PLAZA.add(kk); }
@@ -695,7 +707,7 @@ for (const d of doors.values()) d.lockedBase = d.locked;
 // Dessin de la carte (une seule fois, dans une grande image)
 const world = document.createElement("canvas"); world.width = MW * TS; world.height = MH * TS;
 const wg = world.getContext("2d");
-const roofs = ["#3b3330", "#303842", "#3f372c", "#33383a", "#40302f"], walls = ["#6a5a4f", "#58626b", "#6b6048", "#5a5f54", "#715c5a"];
+const roofs = ["#3b3330", "#303842", "#3f372c", "#33383a", "#40302f", "#4a2c26", "#3a3a30", "#2c3a3a"], walls = ["#6a5a4f", "#58626b", "#6b6048", "#5a5f54", "#715c5a", "#7a4a3e", "#8a8470", "#4f6a6c"];
 const GREENS = ["#1c3f1f", "#244d27", "#2f6a2f", "#3f7a35"];
 const tAt = (x, y) => (y >= 0 && y < MH && x >= 0 && x < MW) ? map[y][x] : TREE;
 const isRoad = t => t === ROAD || t === CAR || t === BARRIER;
@@ -852,11 +864,11 @@ function paintTile(x, y) {
 
   /* ---------- bâtiments ---------- */
   if (t === BUILD) {
-    const cabin = x > CITY_END, [ix, iy] = blockInfo(x, y), v = Math.floor(hh(ix, iy, 6) * 5), shop = !cabin && hh(ix, iy, 20) < 0.35;
+    const cabin = x > CITY_END, [ix, iy] = blockInfo(x, y), v = houseV(x, y), shop = !cabin && hh(ix, iy, 20) < 0.35;
     const facade = tAt(x, y + 1) !== BUILD, door = doors.get(y * MW + x);
     const wall = cabin ? "#5a4330" : walls[v], roof = cabin ? "#4a3626" : roofs[v], wf = shade(wall, .28);
     if (!facade) {
-      const rstyle = Math.floor(hh(ix, iy, 8) * 4), pitched = cabin || rstyle !== 2;
+      const rstyle = Math.floor(hh(houseSeg(x, y).key, iy, 8) * 4), pitched = cabin || rstyle !== 2;
       if (pitched) {
         const GC = cabin ? "#1f3b27" : "#565b55"; R(GC, 0, 0, 16, 16);
         let up = 0; while (up < 8 && tAt(x, y - 1 - up) === BUILD) up++;
@@ -1441,7 +1453,7 @@ function fastTap(id, fn) {
 /* Sons : tout est fabriqué dans le navigateur, aucun fichier */
 const prox = (d, m) => Math.max(0, 1 - d / m);
 const sfx = (() => {
-  let ac = null, master = null, nbuf = null, windGain = null, muted = false, an = null;
+  let ac = null, master = null, nbuf = null, windGain = null, muted = false, an = null, droneGain = null, droneF = null, nextEvt = 0;
   const BOOST = 2.4;
   try { muted = localStorage.getItem("brume-mute") === "1"; } catch (e) {}
   const ok = () => !!ac;
@@ -1470,6 +1482,11 @@ const sfx = (() => {
       const fl = ac.createBiquadFilter(); fl.type = "lowpass"; fl.frequency.value = 380;
       const lfo = ac.createOscillator(); lfo.frequency.value = 0.15; const lg = ac.createGain(); lg.gain.value = 120; lfo.connect(lg); lg.connect(fl.frequency); lfo.start();
       windGain = ac.createGain(); windGain.gain.value = 0.03; src.connect(fl); fl.connect(windGain); windGain.connect(master); src.start();
+      // nappe sombre : basses légèrement désaccordées qui battent lentement (tension)
+      droneGain = ac.createGain(); droneGain.gain.value = 0.0001; droneF = ac.createBiquadFilter(); droneF.type = "lowpass"; droneF.frequency.value = 160; droneF.Q.value = 2;
+      [[55, "sawtooth"], [58.3, "sawtooth"], [82.4, "triangle"], [116.5, "sine"]].forEach((o, i) => { const os = ac.createOscillator(); os.type = o[1]; os.frequency.value = o[0]; const g2 = ac.createGain(); g2.gain.value = i === 3 ? 0.3 : 1; os.connect(g2); g2.connect(droneF); os.start(); });
+      const dl = ac.createOscillator(); dl.frequency.value = 0.07; const dlg = ac.createGain(); dlg.gain.value = 70; dl.connect(dlg); dlg.connect(droneF.frequency); dl.start();
+      droneF.connect(droneGain); droneGain.connect(master);
     } catch (e) { ac = null; }
   }
   function burst(dur, type, f0, f1, q, vol, delay) {
@@ -1501,7 +1518,7 @@ const sfx = (() => {
     door() { tone("sawtooth", 170, 310, 0.45, 0.05, 0, [14, 18], 900); burst(0.08, "lowpass", 500, 0, 1, 0.12); },
     slam() { burst(0.22, "lowpass", 320, 120, 0.8, 0.4); tone("sine", 95, 45, 0.25, 0.32); },
     locked() { burst(0.03, "highpass", 3200, 0, 1, 0.14); burst(0.03, "highpass", 2800, 0, 1, 0.12, 0.09); },
-    key() { tone("triangle", 1500, 900, 0.1, 0.1); burst(0.03, "highpass", 3000, 0, 1, 0.12, 0.08); },
+    key() { burst(0.03, "highpass", 3200, 0, 1, 0.16); burst(0.04, "highpass", 2600, 0, 1, 0.12, 0.07); tone("square", 420, 300, 0.05, 0.05, 0.02, null, 1200); },
     gate() { tone("square", 240, 120, 0.7, 0.06, 0, [9, 14], 700); burst(0.2, "bandpass", 900, 400, 2, 0.1); },
     climb() { burst(0.35, "bandpass", 1400, 500, 1, 0.14); burst(0.12, "lowpass", 400, 0, 1, 0.2, 0.4); },
     growl(v, kind) {
@@ -1518,23 +1535,35 @@ const sfx = (() => {
     chop() { burst(0.07, "bandpass", 720, 500, 6, 0.3); burst(0.07, "bandpass", 640, 450, 6, 0.26, 0.16); tone("triangle", 210, 120, 0.12, 0.12); },
     creak() { tone("sawtooth", 85, 150, 0.55, 0.07, 0, [9, 14], 700); burst(0.3, "bandpass", 700, 400, 2, 0.08, 0.05); tone("triangle", 60, 50, 0.12, 0.12); },
     rummage() { const r = Math.random(); burst(0.16, "bandpass", 1600 + r * 1800, 900, 1.3, 0.11); burst(0.1, "bandpass", 2400, 1300, 1, 0.08, 0.13 + r * 0.1); if (r > 0.55) tone("triangle", 1900 + r * 600, 1500, 0.06, 0.06, 0.08); if (r < 0.3) burst(0.09, "lowpass", 300, 150, 1, 0.14, 0.05); },
-    chestOpen(found) { burst(0.03, "highpass", 2600, 0, 1, 0.2); tone("square", 220, 130, 0.07, 0.1); tone("sawtooth", 110, 280, 0.4, 0.08, 0.06, [8, 10], 1000); burst(0.25, "bandpass", 900, 1600, 1.5, 0.08, 0.08); if (found) { tone("sine", 1318, 0, 0.35, 0.09, 0.32); tone("sine", 1760, 0, 0.45, 0.09, 0.42); tone("sine", 2217, 0, 0.5, 0.06, 0.52); } else burst(0.25, "lowpass", 280, 120, 1, 0.12, 0.3); },
+    chestOpen(found) { burst(0.03, "highpass", 2600, 0, 1, 0.2); tone("square", 220, 130, 0.07, 0.1); tone("sawtooth", 110, 280, 0.4, 0.08, 0.06, [8, 10], 1000); burst(0.25, "bandpass", 900, 1600, 1.5, 0.08, 0.08); if (found) { tone("sawtooth", 98, 92, 0.5, 0.06, 0.3, [6, 4], 500); burst(0.3, "bandpass", 1500, 700, 1.5, 0.07, 0.32); } else burst(0.25, "lowpass", 280, 120, 1, 0.12, 0.3); },
     bite() { burst(0.25, "lowpass", 700, 200, 1, 0.3); tone("square", 90, 40, 0.18, 0.18); burst(0.06, "bandpass", 1800, 900, 2, 0.15, 0.05); burst(0.09, "bandpass", 1300, 600, 2, 0.12, 0.12); },
     heartbeat() { tone("sine", 62, 46, 0.13, 0.28); tone("sine", 54, 40, 0.11, 0.22, 0.17); },
     breath() { burst(0.45, "bandpass", 900, 1500, 1.2, 0.1); burst(0.5, "bandpass", 1300, 700, 1.2, 0.08, 0.5); },
     sting(v) { if (v <= 0.05) return; tone("sawtooth", 260, 820, 0.35, 0.11 * v, 0, [11, 40], 2400); burst(0.22, "highpass", 2600, 0, 1, 0.07 * v, 0.03); },
     siren() { tone("square", 520, 760, 0.45, 0.07, 0, null, 1800); tone("square", 760, 520, 0.45, 0.07, 0.45, null, 1800); },
     rustle() { burst(0.12, "bandpass", 2600, 1500, 0.8, 0.1); burst(0.1, "bandpass", 2300, 1400, 0.8, 0.08, 0.1); },
-    pickup() { tone("sine", 660, 880, 0.14, 0.12); tone("sine", 990, 1200, 0.16, 0.1, 0.1); },
+    pickup() { burst(0.12, "bandpass", 1800, 900, 1.2, 0.13); burst(0.08, "lowpass", 400, 200, 1, 0.14, 0.06); tone("triangle", 150, 90, 0.08, 0.1, 0.05); },
     craft() { for (let i = 0; i < 3; i++) { burst(0.06, "bandpass", 900, 600, 4, 0.22, i * 0.18); tone("triangle", 240, 150, 0.07, 0.1, i * 0.18); } },
     ignite() { burst(0.5, "bandpass", 600, 2500, 0.8, 0.2); tone("sine", 120, 90, 0.4, 0.06); },
     fire(v) { if (v <= 0.03) return; burst(0.03, "highpass", 3500, 0, 1, 0.12 * v); if (Math.random() < 0.4) burst(0.14, "bandpass", 180, 140, 2, 0.07 * v); },
     stone() { burst(0.04, "bandpass", 2400, 0, 5, 0.2); burst(0.04, "bandpass", 1800, 0, 5, 0.16, 0.14); },
     eat() { burst(0.05, "bandpass", 1800, 1000, 2, 0.15); burst(0.05, "bandpass", 1600, 900, 2, 0.13, 0.12); burst(0.05, "bandpass", 1500, 800, 2, 0.12, 0.24); },
     death() { tone("sawtooth", 220, 38, 1.2, 0.3, 0, [5, 8], 700); burst(0.8, "lowpass", 300, 100, 1, 0.3); },
-    win() { [261.6, 329.6, 392, 523.3].forEach((f, i) => tone("sine", f, 0, 1.4, 0.13, i * 0.22)); },
-    radio() { burst(1.4, "bandpass", 1500, 2600, 0.7, 0.14); burst(1.2, "highpass", 3000, 0, 1, 0.05, 0.2); tone("sine", 800, 0, 0.18, 0.08, 1.5); tone("sine", 1000, 0, 0.18, 0.08, 1.75); },
-    ambient(night, indoors) { if (windGain) windGain.gain.setTargetAtTime((0.025 + 0.05 * night) * (indoors ? 0.3 : 1), ac.currentTime, 0.6); }
+    win() { [130.8, 155.6, 196, 261.6].forEach((f, i) => { tone("sawtooth", f, 0, 2.2, 0.06, i * 0.3, [5, 3], 700); tone("sine", f * 2, 0, 1.8, 0.05, i * 0.3 + 0.1); }); },
+    radio() { burst(1.4, "bandpass", 1500, 2600, 0.7, 0.14); burst(1.2, "highpass", 3000, 0, 1, 0.05, 0.2); tone("square", 800, 0, 0.12, 0.05, 1.5, null, 1500); tone("square", 640, 0, 0.12, 0.05, 1.7, null, 1500); },
+    ambient(night, indoors, tension) {
+      if (!windGain) return; const t = ac.currentTime, tn = tension || 0;
+      windGain.gain.setTargetAtTime((0.025 + 0.05 * night) * (indoors ? 0.3 : 1), t, 0.6);
+      if (droneGain) { droneGain.gain.setTargetAtTime((0.012 + 0.02 * night + 0.05 * tn) * BOOST, t, 1.2); droneF.frequency.setTargetAtTime(150 + 260 * tn + 60 * night, t, 1.5); }
+      if (t > nextEvt) {
+        nextEvt = t + (indoors ? 14 : 9) + Math.random() * 16; const r = Math.random(), k = indoors ? 0.6 : 1;
+        if (r < 0.28) { const f = 110 + Math.random() * 50; tone("sawtooth", f, f * 0.55, 2.2, 0.035 * k, 0, [4, 8], 380); }
+        else if (r < 0.5) { burst(0.05, "bandpass", 1300, 900, 8, 0.12 * k); tone("triangle", 330, 300, 0.4, 0.03 * k, 0.02, [3, 4], 900); }
+        else if (r < 0.72) { for (let i = 0; i < 3; i++) burst(0.14, "bandpass", 900, 600, 3, 0.07 * k, i * 0.22); }
+        else if (r < 0.88) tone("sawtooth", 70, 100, 1.4, 0.05 * k, 0, [9, 10], 300);
+        else { burst(0.3, "lowpass", 350, 120, 1, 0.12 * k); tone("sine", 70, 40, 0.3, 0.12 * k); }
+      }
+    }
   };
 })();
 ["pointerdown", "touchend", "click", "keydown"].forEach(ev => addEventListener(ev, () => sfx.init(), { passive: true }));
@@ -1952,6 +1981,7 @@ function spawnHorde() {
   }
   if (made) { say(marc ? "Marc : « Une meute approche, trouvons un abri ! »" : "Des hurlements au loin... une meute approche !", 4.5); sfx.roar(0.7); net.ev("say", { m: "Des hurlements au loin... une meute approche !", r: 1 }); }
 }
+function tensionLevel() { let c = 0; for (const m of mobs) { if (m.state !== "chase" && m.state !== "hunt") continue; if (Math.hypot(m.x - P.x, m.y - P.y) < 190) c++; } return Math.min(1, c / 3); }
 function hordeCheck(nf) {
   const day = Math.floor(clock / DAY), ph = clock % DAY;
   if (ph >= 275 && ph < 300 && !hordeFlags[day + "a"]) { hordeFlags[day + "a"] = true; spawnHorde(); }
@@ -2039,7 +2069,7 @@ function tutoBtn(g, x, y, w, h, label, hot) {
 function spr2(g, fn, x, y) { g.save(); g.imageSmoothingEnabled = false; g.translate(x, y); g.scale(2, 2); fn(g); g.restore(); }
 function showTuto(i) {
   tutoI = i; talkOpen = true;
-  const g = $("tutoCv").getContext("2d"); g.setLineDash([]); g.lineWidth = 1; g.clearRect(0, 0, 320, 180);
+  const g = $("tutoCv").getContext("2d"); g.setTransform(4, 0, 0, 4, 0, 0); g.setLineDash([]); g.lineWidth = 1; g.clearRect(0, 0, 320, 180);
   TUTO[i].draw(g);
   $("tutoT").textContent = (i + 1) + " / " + TUTO.length + "  " + TUTO[i].t; $("tutoD").textContent = TUTO[i].d;
   $("tutoDots").innerHTML = TUTO.map((_, k) => "<i" + (k === i ? ' class="on"' : "") + "></i>").join("");
@@ -2380,7 +2410,7 @@ function loop(now) {
     const ab = $("hAbriW"); ab.hidden = !(radioFixed && !inside);
     if (!ab.hidden) { let bd = 1e9, bdx = 0, bdy = 0; for (const dd of doors.values()) { if (dd.kind !== "cabane") continue; const ddx = dd.x * TS + 8 - (P.x + 8), ddy = dd.y * TS + 16 - (P.y + 8), dist = Math.hypot(ddx, ddy); if (dist < bd) { bd = dist; bdx = ddx; bdy = ddy; } } $("hAbri").textContent = bd < 1e8 ? arrowFor(bdx, bdy) + " " + Math.round(bd / TS * 2) + " m" : "?"; }
     const sn = sfx.isMuted() ? "Son : non" : sfx.state() === "running" ? "Son : oui" : "Son : touche ici"; if ($("bSnd").textContent !== sn) $("bSnd").textContent = sn;
-    const nf = nightF(); sfx.ambient(nf, !!inside); if (!isGuest()) hordeCheck(nf); $("hTime").textContent = nf >= 1 ? "Nuit" : nf > 0 ? (clock % DAY < 300 ? "Crépuscule" : "Aube") : "Jour"; $("hTime").textContent += WX_NAME[wxN];
+    const nf = nightF(); sfx.ambient(nf, !!inside, tensionLevel()); if (!isGuest()) hordeCheck(nf); $("hTime").textContent = nf >= 1 ? "Nuit" : nf > 0 ? (clock % DAY < 300 ? "Crépuscule" : "Aube") : "Jour"; $("hTime").textContent += WX_NAME[wxN];
     const bT = $("bTorch"), bP = $("bTrap"); bT.hidden = (!!inside && inside.kind !== "metro") || !(torchT > 0 || countItem("torche") > 0); bP.hidden = !!inside || countItem("piege") < 1;
     if (!bT.hidden) { const tt = torchT > 0 ? "Torche " + Math.ceil(torchT) + " s" : "Torche"; if (bT.textContent !== tt) bT.textContent = tt; bT.style.opacity = torchT > 0 ? 0.6 : 1; }
     const wi = weaponItem(); $("bHit").hidden = !!inside || !wi; if (wi) { const bt = "Frapper : " + WEAPONS[wi.k].short; if ($("bHit").textContent !== bt) $("bHit").textContent = bt; }
@@ -2430,7 +2460,7 @@ function wallTex(tx, ty, t, face) {
   if (t === GATE) return texCanvas("gate" + face, g2 => { R(g2, "#3a3e3a", 0, 0, 32, 32); for (let i = 1; i < 32; i += 4) R(g2, "#8a8e8a", i, 2, 2, 28); R(g2, "#c8a030", 0, 0, 32, 3); R(g2, "#c8a030", 0, 29, 32, 3); R(g2, "#6a6e6a", 0, 14, 32, 3); R(g2, "#d9c56a", 13, 12, 6, 7); R(g2, "#7a5a1a", 15, 14, 2, 3); });
   if (t === LAB) return texCanvas("lab" + face, g2 => { R(g2, "#aeb7b7", 0, 0, 32, 32); R(g2, "#8d979a", 0, 26, 32, 6); for (let i = 0; i < 32; i += 8) { R(g2, "#d6b52a", i, 0, 4, 3); R(g2, "#1b1b1b", i + 4, 0, 4, 3); } R(g2, "#1b2b2b", 5, 8, 22, 12); R(g2, "#3fa89c", 7, 10, 18, 8); R(g2, "rgba(255,255,255,.3)", 7, 10, 18, 2); nz(g2, "#aeb7b7", 20, 2); });
   if (t === LABDOOR) return texCanvas("labdoor", g2 => { R(g2, "#aeb7b7", 0, 0, 32, 32); R(g2, "#1b2b2b", 3, 4, 26, 28); R(g2, "#7ce0c0", 6, 7, 20, 25); R(g2, "#d9f2e8", 15, 7, 2, 25); R(g2, "#cfd8d8", 0, 3, 3, 29); R(g2, "#cfd8d8", 29, 3, 3, 29); R(g2, "#d6b52a", 0, 0, 32, 3); });
-  const cabin = tx > CITY_END, [ix, iy] = blockInfo(tx, ty), v = Math.floor(hh(ix, iy, 6) * 5), shop = !cabin && hh(ix, iy, 20) < 0.35, vr = Math.floor(hh(tx, ty, 31) * 8);
+  const cabin = tx > CITY_END, [ix, iy] = blockInfo(tx, ty), v = cabin ? Math.floor(hh(ix, iy, 6) * 5) : houseV(tx, ty), shop = !cabin && hh(ix, iy, 20) < 0.35, vr = Math.floor(hh(tx, ty, 31) * 8);
   const wall = cabin ? "#5a4330" : walls[v], wf = shade(wall, .28);
   const door = doors.get(ty * MW + tx);
   const special = door || (hospital && Math.abs(tx - hospital.x) === 1 && ty === hospital.y) || (pharm && tx === pharm.x + 1 && ty === pharm.y) || (market && tx === market.x + 1 && ty === market.y) || (svShown && svDoor && tx === svDoor.x - 1 && ty === svDoor.y) || (bearShown && bearDoor && tx === bearDoor.x - 1 && ty === bearDoor.y);
@@ -2438,11 +2468,15 @@ function wallTex(tx, ty, t, face) {
   return texCanvas(key, g2 => {
     R(g2, wall, 0, 0, 32, 32); nz(g2, wall, 40, tx * 7 + ty);
     if (cabin) { for (let i = 0; i < 32; i += 6) R(g2, shade(wall, -.25), i, 0, 1, 32); R(g2, shade(wall, -.4), 0, 28, 32, 4); }
-    else { R(g2, shade(wall, .2), 0, 0, 32, 4); R(g2, shade(wall, -.4), 0, 4, 32, 1); R(g2, shade(wall, -.3), 0, 26, 32, 6); R(g2, shade(wall, -.5), 0, 26, 32, 1); }
+    else {
+      if (v === 5) { for (let r = 5; r < 26; r += 4) { R(g2, shade(wall, -.35), 0, r, 32, 1); for (let c = (r / 4 & 1) * 4; c < 32; c += 8) R(g2, shade(wall, -.3), c, r - 4, 1, 4); } }
+      else { for (let r = 6; r < 26; r += 4) R(g2, shade(wall, -.16), 0, r, 32, 1); }
+      R(g2, shade(wall, .2), 0, 0, 32, 4); R(g2, shade(wall, -.4), 0, 4, 32, 1); R(g2, shade(wall, -.3), 0, 26, 32, 6); R(g2, shade(wall, -.5), 0, 26, 32, 1); R(g2, "#b8b4a4", 0, 5, 32, 1);
+    }
     if (face === 0) {
       if (door) { R(g2, shade(wall, .25), 7, 6, 18, 26); R(g2, "#0c0806", 9, 8, 14, 24); if (door.locked) { R(g2, "#4a3a2a", 9, 8, 14, 24); R(g2, "#2a2018", 15, 8, 2, 24); R(g2, "#c9a24a", 12, 18, 8, 5); } else { R(g2, "#3a281b", 9, 8, 6, 24); R(g2, "#7a5a2b", 12, 19, 2, 2); } }
       else if (shop) { R(g2, wf, 3, 13, 26, 13); R(g2, "#10171c", 5, 15, 22, 9); for (let i = 0; i < 32; i += 4) R(g2, i % 8 ? "#8a3e3e" : "#bdb7a4", i, 10, 4, 3); R(g2, "rgba(255,255,255,.08)", 6, 16, 8, 1); }
-      else if (vr < 5) { R(g2, wf, 8, 8, 16, 13); R(g2, "#141b21", 10, 10, 12, 9); R(g2, "#9fb2b8", 10, 10, 3, 1); R(g2, "#9fb2b8", 17, 13, 4, 1); R(g2, shade(wall, .3), 7, 21, 18, 2); R(g2, "rgba(255,255,255,.05)", 11, 11, 4, 2); if (vr === 2) R(g2, "#5a4a4a", 10, 10, 5, 9); }
+      else if (vr < 5) { if (vr === 1 || vr === 3) { R(g2, "#27402f", 3, 8, 5, 13); R(g2, "#27402f", 24, 8, 5, 13); } R(g2, wf, 8, 8, 16, 13); R(g2, "#141b21", 10, 10, 12, 9); R(g2, "#9fb2b8", 10, 10, 3, 1); R(g2, "#9fb2b8", 17, 13, 4, 1); R(g2, shade(wall, .3), 7, 21, 18, 2); R(g2, "rgba(255,255,255,.05)", 11, 11, 4, 2); if (vr === 2) R(g2, "#5a4a4a", 10, 10, 5, 9); }
       else if (vr === 5) { R(g2, wf, 8, 8, 16, 13); R(g2, "#6b5236", 8, 10, 16, 3); R(g2, "#5a4430", 8, 15, 16, 3); R(g2, "#2a2018", 11, 10, 1, 1); R(g2, "#2a2018", 20, 15, 1, 1); }
       else if (vr === 6) { R(g2, wf, 8, 8, 16, 13); R(g2, "#0b0c0d", 10, 10, 12, 9); R(g2, "#9fb2b8", 11, 11, 2, 1); R(g2, "#9fb2b8", 19, 17, 2, 1); }
       if (hospital && Math.abs(tx - hospital.x) === 1 && ty === hospital.y) { if (tx > hospital.x) { R(g2, "#d9d9d0", 4, 5, 24, 22); R(g2, "#c0392b", 13, 7, 6, 18); R(g2, "#c0392b", 7, 13, 18, 6); } else { R(g2, "#d9d9d0", 6, 6, 20, 19); R(g2, "#c0392b", 10, 8, 4, 15); R(g2, "#c0392b", 18, 8, 4, 15); R(g2, "#c0392b", 10, 14, 12, 4); } }
@@ -2515,7 +2549,7 @@ function outdoorScene() {
     out: true, n, wxr, amb: 1 - 0.7 * n, maxD: FPSC.maxD * (wxr === 2 ? 0.55 : 1) * (1 - 0.35 * n),
     fogC: wxr === 2 ? [150, 160, 160] : n > 0.5 ? [10, 14, 22] : [96, 112, 106],
     skyTop: n > 0.5 ? [6, 10, 20] : wxr === 2 ? [140, 150, 150] : [88, 108, 106], skyHor: n > 0.5 ? [18, 26, 38] : wxr === 2 ? [164, 172, 170] : [150, 168, 160],
-    opq: fpsOpaque, hgt: () => FPSC.WH, tex: (tx, ty, code, face) => wallTex(tx, ty, code, code === LABDOOR ? 0 : face),
+    opq: fpsOpaque, hgt: (code, mx, my) => code === BUILD && mx > 0 ? houseHgt(mx, my) : FPSC.WH, tex: (tx, ty, code, face) => wallTex(tx, ty, code, code === LABDOOR ? 0 : face),
     floor: (wx, wy) => { const tx = Math.floor(wx / TS), ty = Math.floor(wy / TS), tt = (tx < 0 || ty < 0 || tx >= MW || ty >= MH) ? GRASS : map[ty][tx]; return fpsFloorColor(tt, tx, ty, wx, wy, Math.floor(wx / 2), Math.floor(wy / 2), wxr === 1); },
     sprites: (add, now, ox, oy, maxD, facing) => {
       const rr = Math.ceil(maxD / TS) + 1, cx0 = Math.floor(ox / TS), cy0 = Math.floor(oy / TS);
@@ -2570,7 +2604,7 @@ function indoorScene() {
     out: false, n: 0, wxr: 0, amb: metro ? (torch ? 0.75 : 0.3) : 0.9, maxD: metro ? (torch ? 190 : 80) : 260, ceil: true,
     fogC: metro ? [4, 6, 8] : [24, 20, 18], skyTop: metro ? [6, 8, 10] : [30, 24, 20], skyHor: metro ? [10, 12, 14] : [48, 40, 34],
     opq: (tx, ty) => { if (tx < 0 || ty < 0 || tx >= IW || ty >= IH) return 1; if (cur.solid(tx, ty)) { const i = pcAt(tx, ty); return i >= 0 ? 2 + i : 1; } return 0; },
-    hgt: code => code >= 2 ? (HG[cur.pieces[code - 2].t] || 12) : FPSC.WH,
+    hgt: (code) => code >= 2 ? (HG[cur.pieces[code - 2].t] || 12) : FPSC.WH,
     tex: (tx, ty, code, face) => code >= 2 ? furnTex(cur.pieces[code - 2].t) : (ty >= IH && (tx === 9 || tx === 10)) ? exitTex() : roomWallTex(TH, tx + ty),
     floor: (wx, wy) => { const ix = Math.floor(wx / 2), iy = Math.floor(wy / 2), nz = (((ix * 73856093) ^ (iy * 19349663)) >>> 3) & 7, c = (Math.floor(wx / TS) + Math.floor(wy / TS)) % 2 ? c1 : c2, ln = Math.floor(wx) % 16 === 0 ? -12 : 0; return fc(c[0] + nz + ln, c[1] + nz + ln, c[2] + nz + ln); },
     sprites: (add, now, ox, oy, maxD, facing) => {
@@ -2632,13 +2666,13 @@ function renderFPS(now) {
     while (guard++ < 70) {
       if (sdx < sdy) { sdx += ddx; mx += step_x; side = 0; } else { sdy += ddy; my += step_y; side = 1; }
       const code = scn.opq(mx, my), dd = side ? sdy - ddy : sdx - ddx;
-      if (code) { hits.push({ perp: dd * TS, side, mx, my, code }); if (scn.hgt(code) >= FPSC.WH || hits.length > 3) break; }
+      if (code) { hits.push({ perp: dd * TS, side, mx, my, code }); if (scn.hgt(code, mx, my) >= FPSC.WH || hits.length > 3) break; }
       if (dd > maxT) break;
     }
     if (!hits.length) { zb[x] = 1e9; continue; }
     zb[x] = hits[0].perp;
     for (let hi = hits.length - 1; hi >= 0; hi--) {
-      const h = hits[hi], perp = Math.max(0.5, h.perp), hgt = scn.hgt(h.code), lineH = hgt * pd / perp, top = horizon + (eyeH - hgt) * pd / perp;
+      const h = hits[hi], perp = Math.max(0.5, h.perp), hgt = scn.hgt(h.code, h.mx, h.my), lineH = hgt * pd / perp, top = horizon + (eyeH - hgt) * pd / perp;
       let wallX = h.side ? (ox / TS + (perp / TS) * rdx) : (oy / TS + (perp / TS) * rdy); wallX -= Math.floor(wallX);
       const face = h.side ? (rdy < 0 ? 0 : 1) : 2, tex = scn.tex(h.mx, h.my, h.code, face);
       g0.drawImage(tex, Math.min(31, Math.floor(wallX * 32)), 0, 1, 32, x, top, 1, lineH);
@@ -2940,7 +2974,7 @@ function render(now) {
 /* ---------- Multijoueur : une équipe de 2 à 4 joueurs sur plusieurs appareils ----------
    L'hôte fait tourner le monde (infectés, temps, feux, pièges) et envoie l'état aux autres.
    Chaque joueur garde son propre sac, sa faim et ses vies. */
-const GAME_VER = "6";
+const GAME_VER = "7";
 const net = { role: "solo", kind: "", me: "", max: 1, code: "", link: null, peers: new Map(), lobby: [], looks: {}, t: 0, joinTimer: 0 };
 const others = new Map();
 let mobCounter = 1000, fireId = 0;
