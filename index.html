@@ -601,6 +601,7 @@ const shapeOf = (ix, iy) => { const r = hh(ix, iy, 301); return SHAPES[r < 0.16 
 // Maisons collées : chaque bloc est découpé en plusieurs maisons (couleur, hauteur et toit différents)
 const SEGP = [[0, 0, 1, 1, 2, 2], [0, 0, 0, 1, 1, 1], [0, 0, 1, 1, 1, 1], [0, 0, 0, 0, 1, 1], [0, 1, 1, 2, 2, 2], [0, 0, 1, 1, 2, 3]];
 function houseSeg(x, y) { const bx = ((x - 3) % 10 + 10) % 10, [ix, iy] = blockInfo(x, y), pat = SEGP[Math.floor(hh(ix, iy, 310) * SEGP.length)], by = byOf(y); const sg = pat[Math.max(0, Math.min(5, bx - 1))] + (by >= 4 && hh(ix, iy, 312) < 0.4 ? 4 : 0); return { ix, iy, sg, key: ix * 8 + sg }; }
+function houseBarr(x, y) { const h = houseSeg(x, y); return x <= CITY_END && hh(h.key, h.iy, 340) < 0.22; }
 function houseV(x, y) { const h = houseSeg(x, y); return Math.floor(hh(h.key, h.iy, 6) * 8); }
 function houseHgt(x, y) {
   const h = houseSeg(x, y), base = [18, 22, 26][Math.floor(hh(h.key, h.iy, 315) * 3)], bx = ((x - 3) % 10 + 10) % 10;
@@ -2481,7 +2482,7 @@ function wallTex(tx, ty, t, face) {
   const wall = cabin ? "#5a4330" : walls[v], wf = shade(wall, .28);
   const door = doors.get(ty * MW + tx);
   const special = door || (hospital && Math.abs(tx - hospital.x) === 1 && ty === hospital.y) || (pharm && tx === pharm.x + 1 && ty === pharm.y) || (market && tx === market.x + 1 && ty === market.y) || (svShown && svDoor && tx === svDoor.x - 1 && ty === svDoor.y) || (bearShown && bearDoor && tx === bearDoor.x - 1 && ty === bearDoor.y);
-  const key = (face === 0 && special) ? "s" + tx + "," + ty + (door && door.locked ? "L" : "") : (cabin ? "c" : "b") + v + "." + face + "." + (face === 0 ? vr + (shop ? "s" : "") : 0);
+  const barr = !cabin && houseBarr(tx, ty), key = (face === 0 && special) ? "s" + tx + "," + ty + (door && door.locked ? "L" : "") : (cabin ? "c" : "b") + v + "." + face + "." + (face === 0 ? vr + (shop ? "s" : "") : 0) + (barr ? "B" + (face === 0 ? tx % 3 : 0) : "");
   return texCanvas(key, g2 => {
     R(g2, wall, 0, 0, 32, 32); nz(g2, wall, 40, tx * 7 + ty);
     if (cabin) { for (let i = 0; i < 32; i += 6) R(g2, shade(wall, -.25), i, 0, 1, 32); R(g2, shade(wall, -.4), 0, 28, 32, 4); }
@@ -2507,6 +2508,12 @@ function wallTex(tx, ty, t, face) {
       const pc = "#cfcab8"; R(g2, shade(wall, -.55), 1, 5, 30, 3); R(g2, shade(wall, -.75), 1, 8, 30, 1);
       R(g2, pc, 3, 8, 2, 19); R(g2, pc, 27, 8, 2, 19); R(g2, pc, 5, 21, 22, 1); for (let i = 7; i < 27; i += 3) R(g2, pc, i, 21, 1, 5);
     }
+    if (barr && !door) {   // planches clouées en travers des fenêtres et du mur
+      const pl = (x, y, w, h2, a) => { g2.save(); g2.translate(x, y); g2.rotate(a); R(g2, "#6b4f30", -w / 2, -h2 / 2, w, h2); R(g2, "#8a6a40", -w / 2, -h2 / 2, w, 1); R(g2, "#3a2a18", -w / 2, h2 / 2 - 1, w, 1); R(g2, "#c8c0a8", -w / 2 + 2, 0, 1, 1); R(g2, "#c8c0a8", w / 2 - 3, 0, 1, 1); g2.restore(); };
+      if (face === 0) { pl(16, 12 + (tx % 3), 30, 4, -0.18); pl(16, 17, 30, 4, 0.16); pl(16, 22, 28, 3, -0.08); }
+      else pl(16, 14, 30, 4, 0.12);
+    }
+    if (hh(tx, ty, 360) < 0.18) { g2.fillStyle = "rgba(110,14,16,.8)"; for (let i = 0; i < 9; i++) { const sx = 6 + hh(i, tx, 361) * 20, sy = 6 + hh(i, ty, 362) * 14; g2.fillRect(sx, sy, 1 + (i % 3), 1 + (i % 2)); if (i % 3 === 0) g2.fillRect(sx, sy, 1, 4 + (i % 4) * 2); } }
     // lierre et taches
     for (let i = 0; i < 32; i += 2) if (hh(tx * 3 + i, ty, 150) < 0.5) { const L = 4 + Math.floor(hh(i, tx + ty, 170) * 12); R(g2, GREENS[0], i, 0, 2, L); if (L > 6) R(g2, GREENS[2], i - 1, L - 3, 3, 3); }
     if (hh(tx, ty, 120) < 0.4) { R(g2, "rgba(0,0,0,.3)", 4, 8, 1, 8); R(g2, "rgba(0,0,0,.3)", 6, 14, 1, 10); }
@@ -2535,7 +2542,19 @@ function kidCanvas(dir, fi) { drawKid(mkc(1, 1).getContext("2d"), dir, fi, 0, 5)
 
 // --- le rendu
 const FCOL = [0, 0, 0], fc = (a, b, c) => { FCOL[0] = a; FCOL[1] = b; FCOL[2] = c; return FCOL; };
+function bloodAt(tx, ty, lx, ly) {
+  if (hh(tx, ty, 350) > 0.11) return 0;
+  const cx = 3 + hh(tx, ty, 351) * 10, cy = 3 + hh(tx, ty, 352) * 10, r = 2 + hh(tx, ty, 353) * 3.5, d = Math.hypot(lx - cx, ly - cy);
+  if (d < r) return d < r * 0.55 ? 2 : 1;
+  if (d < r + 4 && hh(Math.floor(lx), Math.floor(ly), 354) < 0.3) return 1;
+  return 0;
+}
 function fpsFloorColor(tt, tx, ty, wx, wy, ix, iy, rain) {
+  const c = fpsFloorColor0(tt, tx, ty, wx, wy, ix, iy, rain);
+  if (tx <= CITY_END && (tt === ROAD || tt === WALK || tt === DEBRIS)) { const b = bloodAt(tx, ty, wx - tx * TS, wy - ty * TS); if (b) { if (b === 2) { c[0] = 74; c[1] = 12; c[2] = 14; } else { c[0] = (c[0] * 0.45 + 70) | 0; c[1] = (c[1] * 0.4 + 10) | 0; c[2] = (c[2] * 0.4 + 12) | 0; } } }
+  return c;
+}
+function fpsFloorColor0(tt, tx, ty, wx, wy, ix, iy, rain) {
   const n = (((ix * 73856093) ^ (iy * 19349663)) >>> 3) & 15;
   if (tt === ROAD || tt === CAR || tt === BARRIER) {
     const lx = wx - tx * TS, ly = wy - ty * TS, by2 = byOf(ty), bx2 = ((tx - 3) % 10 + 10) % 10;
@@ -2576,6 +2595,7 @@ function outdoorScene() {
       const rr = Math.ceil(maxD / TS) + 1, cx0 = Math.floor(ox / TS), cy0 = Math.floor(oy / TS);
       for (let ty = Math.max(0, cy0 - rr); ty <= Math.min(MH - 1, cy0 + rr); ty++) for (let tx = Math.max(0, cx0 - rr); tx <= Math.min(MW - 1, cx0 + rr); tx++) {
         const t = map[ty][tx];
+        if (t === WALK && tx <= CITY_END && ty > 0 && map[ty - 1][tx] === BUILD && !doors.get((ty - 1) * MW + tx) && houseBarr(tx, ty - 1) && hh(tx, ty, 332) < 0.6) { add(tx * TS + 8, ty * TS + 6, fpsSprite("barr" + (tx % 2), 16, 12, g2 => { const R2 = (c, x, y, w, h2) => { g2.fillStyle = c; g2.fillRect(x, y, w, h2); }; R2("#4a3a24", 1, 8, 14, 3); R2("#6b4f30", 0, 5, 16, 3); R2("#8a6a40", 0, 5, 16, 1); R2("#5a4228", 2, 2, 12, 3); R2("#7a5a36", 2, 2, 12, 1); R2("#c8c0a8", 4, 6, 1, 1); R2("#c8c0a8", 11, 3, 1, 1); R2("#6e1214", 6, 6, 3, 1); R2("#6e1214", 7, 7, 1, 2); }), 16, 10, 0); continue; }
         if (t === WALK && tx <= CITY_END && ty > 0 && map[ty - 1][tx] === BUILD && !doors.get((ty - 1) * MW + tx) && hh(tx, ty, 330) < 0.6) { add(tx * TS + 8, ty * TS + 3, fpsSprite("fence" + (hh(tx, ty, 331) < 0.3 ? 1 : 0), 16, 8, g2 => { g2.fillStyle = "#b8b4a2"; g2.fillRect(0, 2, 16, 1); g2.fillRect(0, 5, 16, 1); for (let i = 1; i < 16; i += 3) { g2.fillStyle = "#cdc9b6"; g2.fillRect(i, 1, 2, 7); g2.fillStyle = "#8a8674"; g2.fillRect(i + 1, 1, 1, 7); } }), 16, 7, 0); continue; }
         if (t !== TREE && t !== CAR && t !== BARRIER && t !== DEBRIS) continue;
         const cxw = tx * TS + 8, cyw = ty * TS + 8, kk = ty * MW + tx;
@@ -2999,7 +3019,7 @@ function render(now) {
 /* ---------- Multijoueur : une équipe de 2 à 4 joueurs sur plusieurs appareils ----------
    L'hôte fait tourner le monde (infectés, temps, feux, pièges) et envoie l'état aux autres.
    Chaque joueur garde son propre sac, sa faim et ses vies. */
-const GAME_VER = "8";
+const GAME_VER = "9";
 const net = { role: "solo", kind: "", me: "", max: 1, code: "", link: null, peers: new Map(), lobby: [], looks: {}, t: 0, joinTimer: 0 };
 const others = new Map();
 let mobCounter = 1000, fireId = 0;
