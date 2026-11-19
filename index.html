@@ -607,6 +607,23 @@ function houseHgt(x, y) {
   const left = houseSeg(x - 1, y).key === h.key && map[y] && map[y][x - 1] === BUILD, right = houseSeg(x + 1, y).key === h.key && map[y] && map[y][x + 1] === BUILD;
   return Math.min(26, base + (left && right ? 4 : 0));
 }
+const extCache = new Map();
+function houseExtent(x, y) {
+  const k = y * MW + x; let e = extCache.get(k); if (e) return e;
+  const key = houseSeg(x, y).key; let a = x, b = x;
+  while (a > 0 && map[y][a - 1] === BUILD && houseSeg(a - 1, y).key === key) a--;
+  while (b < MW - 1 && map[y][b + 1] === BUILD && houseSeg(b + 1, y).key === key) b++;
+  e = [a, b]; extCache.set(k, e); return e;
+}
+// toit en pignon (triangle) et cheminée au-dessus de la façade : renvoie la hauteur en plus et sa couleur
+function roofProfile(mx, my, wallX) {
+  if (mx > CITY_END) return null;
+  const hs = houseSeg(mx, my); if (hh(hs.key, hs.iy, 316) > 0.72) return null;
+  const [a, b] = houseExtent(mx, my), u = (mx + wallX - a) / (b - a + 1), tri = 1 - Math.abs(2 * u - 1), v = houseV(mx, my);
+  let ex = Math.round(9 * tri), chim = false;
+  if (hh(hs.key, hs.iy, 317) < 0.5 && u > 0.68 && u < 0.78) { ex = Math.max(ex, Math.round(9 * 0.64) + 6); chim = true; }
+  return ex > 0 ? { ex, col: chim ? "#6a4a40" : shade(roofs[v], 0.4), edge: chim ? "#8a6a5a" : shade(roofs[v], 0.7) } : null;
+}
 const GARDEN = new Set(), FOUNT = new Set(), PLAZA = new Set(), ORCH = new Set();
 for (let y = 0; y < MH; y++) {
   const row = [];
@@ -2486,6 +2503,10 @@ function wallTex(tx, ty, t, face) {
       if (bearShown && bearDoor && tx === bearDoor.x - 1 && ty === bearDoor.y) { R(g2, "#e0709a", 14, 4, 4, 22); R(g2, "#e0709a", 8, 6, 6, 6); R(g2, "#e0709a", 18, 6, 6, 6); }
     } else if (face === 2) { R(g2, shade(wall, -.15), 0, 0, 32, 32); R(g2, shade(wall, -.4), 5, 4, 3, 22); R(g2, shade(wall, .1), 8, 4, 1, 22); }
     else { R(g2, shade(wall, -.1), 0, 0, 32, 32); R(g2, shade(wall, -.4), 6, 10, 10, 6); R(g2, shade(wall, .1), 6, 10, 10, 1); }
+    if (face === 0 && !door && !shop && !special && !cabin && vr < 5 && (vr % 2 === 0 || vr === 3)) {
+      const pc = "#cfcab8"; R(g2, shade(wall, -.55), 1, 5, 30, 3); R(g2, shade(wall, -.75), 1, 8, 30, 1);
+      R(g2, pc, 3, 8, 2, 19); R(g2, pc, 27, 8, 2, 19); R(g2, pc, 5, 21, 22, 1); for (let i = 7; i < 27; i += 3) R(g2, pc, i, 21, 1, 5);
+    }
     // lierre et taches
     for (let i = 0; i < 32; i += 2) if (hh(tx * 3 + i, ty, 150) < 0.5) { const L = 4 + Math.floor(hh(i, tx + ty, 170) * 12); R(g2, GREENS[0], i, 0, 2, L); if (L > 6) R(g2, GREENS[2], i - 1, L - 3, 3, 3); }
     if (hh(tx, ty, 120) < 0.4) { R(g2, "rgba(0,0,0,.3)", 4, 8, 1, 8); R(g2, "rgba(0,0,0,.3)", 6, 14, 1, 10); }
@@ -2554,7 +2575,9 @@ function outdoorScene() {
     sprites: (add, now, ox, oy, maxD, facing) => {
       const rr = Math.ceil(maxD / TS) + 1, cx0 = Math.floor(ox / TS), cy0 = Math.floor(oy / TS);
       for (let ty = Math.max(0, cy0 - rr); ty <= Math.min(MH - 1, cy0 + rr); ty++) for (let tx = Math.max(0, cx0 - rr); tx <= Math.min(MW - 1, cx0 + rr); tx++) {
-        const t = map[ty][tx]; if (t !== TREE && t !== CAR && t !== BARRIER && t !== DEBRIS) continue;
+        const t = map[ty][tx];
+        if (t === WALK && tx <= CITY_END && ty > 0 && map[ty - 1][tx] === BUILD && !doors.get((ty - 1) * MW + tx) && hh(tx, ty, 330) < 0.6) { add(tx * TS + 8, ty * TS + 3, fpsSprite("fence" + (hh(tx, ty, 331) < 0.3 ? 1 : 0), 16, 8, g2 => { g2.fillStyle = "#b8b4a2"; g2.fillRect(0, 2, 16, 1); g2.fillRect(0, 5, 16, 1); for (let i = 1; i < 16; i += 3) { g2.fillStyle = "#cdc9b6"; g2.fillRect(i, 1, 2, 7); g2.fillStyle = "#8a8674"; g2.fillRect(i + 1, 1, 1, 7); } }), 16, 7, 0); continue; }
+        if (t !== TREE && t !== CAR && t !== BARRIER && t !== DEBRIS) continue;
         const cxw = tx * TS + 8, cyw = ty * TS + 8, kk = ty * MW + tx;
         if (t === TREE) { if (FOUNT.has(kk)) { add(cxw, cyw, fpsSprite("fountain", 24, 18, g2 => { g2.fillStyle = "#7e827a"; g2.fillRect(0, 9, 24, 9); g2.fillStyle = "#4a86a0"; g2.fillRect(2, 9, 20, 4); g2.fillStyle = "#8a8e86"; g2.fillRect(10, 2, 4, 9); g2.fillStyle = "#cfe3ec"; g2.fillRect(9, 0, 6, 3); }), 22, 15, 0); continue; } const v = tx > CITY_END && hh(tx, ty, 27) < 0.6 ? 3 + Math.floor(hh(tx, ty, 28) * 3) : Math.floor(hh(tx, ty, 29) * 3); add(cxw, cyw, fpsTree(v), 22, 38, 0); }
         else if (t === CAR) add(cxw, cyw, carSide(Math.floor(hh(tx, ty, 6) * 3), hh(tx, ty, 5) < 0.34 ? 1 : 0), 22, 11, 0);
@@ -2676,11 +2699,13 @@ function renderFPS(now) {
       let wallX = h.side ? (ox / TS + (perp / TS) * rdx) : (oy / TS + (perp / TS) * rdy); wallX -= Math.floor(wallX);
       const face = h.side ? (rdy < 0 ? 0 : 1) : 2, tex = scn.tex(h.mx, h.my, h.code, face);
       g0.drawImage(tex, Math.min(31, Math.floor(wallX * 32)), 0, 1, 32, x, top, 1, lineH);
+      let rTop = top, rH = lineH;
+      if (scn.out && h.code === BUILD && h.side === 1) { const rp = roofProfile(h.mx, h.my, wallX); if (rp) { const eh = rp.ex * pd / perp; g0.fillStyle = rp.col; g0.fillRect(x, top - eh, 1, eh + 0.6); g0.fillStyle = rp.edge; g0.fillRect(x, top - eh, 1, Math.max(1, eh * 0.12)); rTop = top - eh; rH = lineH + eh; } }
       let bright = amb * (1 - Math.min(1, perp / maxD)) * (h.side ? 0.78 : 1); if (wxr === 1) bright *= 0.88;
       const hx = ox + perp * rdx, hy = oy + perp * rdy;
       for (const L of lights) { const dl = Math.hypot(hx - L[0], hy - L[1]); if (dl < 90) bright = Math.max(bright, 0.95 * (1 - dl / 90) + bright * (dl / 90)); }
       const al = 1 - Math.max(0, Math.min(1, bright));
-      if (al > 0.02) { g0.fillStyle = "rgba(" + fogTxt + "," + al.toFixed(2) + ")"; g0.fillRect(x, top, 1, lineH); }
+      if (al > 0.02) { g0.fillStyle = "rgba(" + fogTxt + "," + al.toFixed(2) + ")"; g0.fillRect(x, rTop, 1, rH); }
     }
   }
   // objets vus de côté (arbres, voitures, ennemis, objets au sol...)
@@ -2974,7 +2999,7 @@ function render(now) {
 /* ---------- Multijoueur : une équipe de 2 à 4 joueurs sur plusieurs appareils ----------
    L'hôte fait tourner le monde (infectés, temps, feux, pièges) et envoie l'état aux autres.
    Chaque joueur garde son propre sac, sa faim et ses vies. */
-const GAME_VER = "7";
+const GAME_VER = "8";
 const net = { role: "solo", kind: "", me: "", max: 1, code: "", link: null, peers: new Map(), lobby: [], looks: {}, t: 0, joinTimer: 0 };
 const others = new Map();
 let mobCounter = 1000, fireId = 0;
