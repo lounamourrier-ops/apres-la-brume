@@ -39,11 +39,18 @@ h2 { font-family: var(--display); font-weight: 700; font-size: clamp(1.9rem, 7vw
 p { margin: 0; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
 .top { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
-#preview { width: 126px; height: 154px; image-rendering: pixelated; background: #0b100d; border: 1px solid var(--line); border-radius: 12px; flex: none; }
+#preview { width: 108px; height: 132px; image-rendering: pixelated; background: #0b100d; border: 1px solid var(--line); border-radius: 12px; flex: none; }
 .field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
 label, .lab { font-family: var(--display); font-size: 1rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 input[type=text] { font: inherit; font-size: 1.1rem; background: #0b100d; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; }
 .opt { display: flex; flex-direction: column; gap: 8px; }
+.top .field { flex: 1; min-width: 150px; }
+#start { position: sticky; bottom: 10px; z-index: 5; box-shadow: 0 0 0 6px var(--bg); }
+.tabs { display: flex; gap: 6px; margin: 4px 0 2px; border-bottom: 1px solid var(--line); }
+.tabb { flex: 1; padding: 11px 8px; background: transparent; color: var(--muted); border: 0; border-bottom: 3px solid transparent; font-family: var(--display); font-size: 1.05rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
+.tabb[aria-pressed="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.tabp { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 4px; }
+.tabp[hidden] { display: none; }
 .sw { display: flex; flex-wrap: wrap; gap: 10px; }
 .sw button { width: 44px; height: 44px; border-radius: 10px; border: 3px solid transparent; cursor: pointer; padding: 0; }
 .sw button.txt { width: auto; padding: 0 16px; background: #0b100d; color: var(--fg); font: inherit; border: 2px solid var(--line); }
@@ -146,20 +153,25 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
       <div class="field">
         <label for="name">Prénom</label>
         <input id="name" type="text" maxlength="14" value="Léa" autocomplete="off">
+        <div class="sw" id="o-gender" style="margin-top:10px"></div>
+        <div class="sw" style="margin-top:10px"><button class="txt" id="rand" type="button">Au hasard</button></div>
       </div>
     </div>
-    <div class="opt"><span class="lab">Personnage</span><div class="sw" id="o-gender"></div></div>
-    <div class="opt"><span class="lab">Peau</span><div class="sw" id="o-skin"></div></div>
-    <div class="opt"><span class="lab">Coiffure</span><div class="sw" id="o-style"></div></div>
-    <div class="opt"><span class="lab">Couleur des cheveux</span><div class="sw" id="o-hair"></div></div>
-    <div class="opt"><span class="lab">Tenue</span><div class="sw" id="o-top"></div></div>
-    <div class="opt"><span class="lab">Couleur de la tenue</span><div class="sw" id="o-topc"></div></div>
-    <div class="opt"><span class="lab">Bas</span><div class="sw" id="o-bot"></div></div>
-    <div class="opt"><span class="lab">Couleur du bas</span><div class="sw" id="o-botc"></div></div>
-    <div class="opt"><span class="lab">Accessoire</span><div class="sw" id="o-acc"></div></div>
-    <div class="opt"><div class="sw"><button class="txt" id="rand" type="button">Au hasard</button></div></div>
-    <div class="opt"><span class="lab">Difficulté</span><div class="sw" id="o-diff"></div><p class="note" id="diffNote"></p></div>
-    <div class="opt"><span class="lab">Joueurs</span><div class="sw" id="o-players"></div><p class="note" id="mpNote"></p></div>
+    <div class="tabs" role="tablist"><button type="button" class="tabb" data-p="look" aria-pressed="true">Visage</button><button type="button" class="tabb" data-p="tenue" aria-pressed="false">Tenue</button><button type="button" class="tabb" data-p="partie" aria-pressed="false">Partie</button></div>
+    <div class="tabp" data-p="look">
+      <div class="opt"><span class="lab">Peau</span><div class="sw" id="o-skin"></div></div>
+      <div class="opt"><span class="lab">Coiffure</span><div class="sw" id="o-style"></div></div>
+      <div class="opt"><span class="lab">Cheveux</span><div class="sw" id="o-hair"></div></div>
+    </div>
+    <div class="tabp" data-p="tenue" hidden>
+      <div class="opt"><span class="lab">Haut</span><div class="sw" id="o-top"></div><div class="sw" id="o-topc"></div></div>
+      <div class="opt"><span class="lab">Bas</span><div class="sw" id="o-bot"></div><div class="sw" id="o-botc"></div></div>
+      <div class="opt"><span class="lab">Accessoire</span><div class="sw" id="o-acc"></div></div>
+    </div>
+    <div class="tabp" data-p="partie" hidden>
+      <div class="opt"><span class="lab">Difficulté</span><div class="sw" id="o-diff"></div><p class="note" id="diffNote"></p></div>
+      <div class="opt"><span class="lab">Joueurs</span><div class="sw" id="o-players"></div><p class="note" id="mpNote"></p></div>
+    </div>
     <div class="opt" id="mpBox" hidden>
       <div class="sw" id="mpJoinRow" hidden><input id="mpCode" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="CODE" aria-label="Code de la partie"><button class="txt" id="mpJoinGo" type="button">Rejoindre</button></div>
       <div id="mpCodeBig" aria-live="polite"></div>
@@ -2117,6 +2129,7 @@ function showTuto(i) {
   $("tuto").hidden = false;
 }
 function closeTuto() { $("tuto").hidden = true; talkOpen = false; last = performance.now(); try { localStorage.setItem("brume-tuto-7", "1"); } catch (e) {} }
+document.querySelectorAll(".tabb").forEach(b => b.addEventListener("click", () => { document.querySelectorAll(".tabb").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false")); document.querySelectorAll(".tabp").forEach(pn => { pn.hidden = pn.dataset.p !== b.dataset.p; }); }));
 $("tutoNext").onclick = () => { if (tutoI >= TUTO.length - 1) closeTuto(); else showTuto(tutoI + 1); };
 $("tutoPrev").onclick = () => { if (tutoI > 0) showTuto(tutoI - 1); };
 $("tutoSkip").onclick = closeTuto;
@@ -2535,6 +2548,11 @@ function wallTex(tx, ty, t, face) {
       const pl = (x, y, w, h2, a) => { g2.save(); g2.translate(x, y); g2.rotate(a); R(g2, "#6b4f30", -w / 2, -h2 / 2, w, h2); R(g2, "#8a6a40", -w / 2, -h2 / 2, w, 1); R(g2, "#3a2a18", -w / 2, h2 / 2 - 1, w, 1); R(g2, "#c8c0a8", -w / 2 + 2, 0, 1, 1); R(g2, "#c8c0a8", w / 2 - 3, 0, 1, 1); g2.restore(); };
       if (face === 0) { pl(16, 12 + (tx % 3), 30, 4, -0.18); pl(16, 17, 30, 4, 0.16); pl(16, 22, 28, 3, -0.08); }
       else pl(16, 14, 30, 4, 0.12);
+    }
+    if (face === 0 && !door && !shop && !special && !cabin && !barr && hh(tx, ty, 390) < 0.14) {   // message peint à la bombe
+      const msg = ["AIDE", "FUYEZ", "ICI", "NON", "J-12", "DIEU", "MORTS", "X"][Math.floor(hh(tx, ty, 391) * 8)];
+      g2.save(); g2.translate(16, 22); g2.rotate((hh(tx, ty, 392) - 0.5) * 0.2); g2.font = "bold 8px monospace"; g2.textAlign = "center"; g2.textBaseline = "middle";
+      g2.fillStyle = "rgba(20,0,0,.5)"; g2.fillText(msg, 1, 1); g2.fillStyle = "#b5201f"; g2.fillText(msg, 0, 0); g2.restore();
     }
     if (hh(tx, ty, 360) < 0.18) { g2.fillStyle = "rgba(110,14,16,.8)"; for (let i = 0; i < 9; i++) { const sx = 6 + hh(i, tx, 361) * 20, sy = 6 + hh(i, ty, 362) * 14; g2.fillRect(sx, sy, 1 + (i % 3), 1 + (i % 2)); if (i % 3 === 0) g2.fillRect(sx, sy, 1, 4 + (i % 4) * 2); } }
     // lierre et taches
@@ -3061,7 +3079,7 @@ function render(now) {
 /* ---------- Multijoueur : une équipe de 2 à 4 joueurs sur plusieurs appareils ----------
    L'hôte fait tourner le monde (infectés, temps, feux, pièges) et envoie l'état aux autres.
    Chaque joueur garde son propre sac, sa faim et ses vies. */
-const GAME_VER = "11";
+const GAME_VER = "12";
 const net = { role: "solo", kind: "", me: "", max: 1, code: "", link: null, peers: new Map(), lobby: [], looks: {}, t: 0, joinTimer: 0 };
 const others = new Map();
 let mobCounter = 1000, fireId = 0;
