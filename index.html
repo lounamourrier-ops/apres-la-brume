@@ -603,11 +603,7 @@ const SEGP = [[0, 0, 1, 1, 2, 2], [0, 0, 0, 1, 1, 1], [0, 0, 1, 1, 1, 1], [0, 0,
 function houseSeg(x, y) { const bx = ((x - 3) % 10 + 10) % 10, [ix, iy] = blockInfo(x, y), pat = SEGP[Math.floor(hh(ix, iy, 310) * SEGP.length)], by = byOf(y); const sg = pat[Math.max(0, Math.min(5, bx - 1))] + (by >= 4 && hh(ix, iy, 312) < 0.4 ? 4 : 0); return { ix, iy, sg, key: ix * 8 + sg }; }
 function houseBarr(x, y) { const h = houseSeg(x, y); return x <= CITY_END && hh(h.key, h.iy, 340) < 0.22; }
 function houseV(x, y) { const h = houseSeg(x, y); return Math.floor(hh(h.key, h.iy, 6) * 8); }
-function houseHgt(x, y) {
-  const h = houseSeg(x, y), base = [18, 22, 26][Math.floor(hh(h.key, h.iy, 315) * 3)], bx = ((x - 3) % 10 + 10) % 10;
-  const left = houseSeg(x - 1, y).key === h.key && map[y] && map[y][x - 1] === BUILD, right = houseSeg(x + 1, y).key === h.key && map[y] && map[y][x + 1] === BUILD;
-  return Math.min(26, base + (left && right ? 4 : 0));
-}
+function houseHgt(x, y) { const h = houseSeg(x, y); return [19, 23, 27][Math.floor(hh(h.key, h.iy, 315) * 3)]; }
 const extCache = new Map();
 function houseExtent(x, y) {
   const k = y * MW + x; let e = extCache.get(k); if (e) return e;
@@ -624,6 +620,31 @@ function roofProfile(mx, my, wallX) {
   let ex = Math.round(9 * tri), chim = false;
   if (hh(hs.key, hs.iy, 317) < 0.5 && u > 0.68 && u < 0.78) { ex = Math.max(ex, Math.round(9 * 0.64) + 6); chim = true; }
   return ex > 0 ? { ex, col: chim ? "#6a4a40" : shade(roofs[v], 0.4), edge: chim ? "#8a6a5a" : shade(roofs[v], 0.7) } : null;
+}
+// ---- toits en 3D : chaque maison a un toit en pente (croupe, pignon ou toit plat), calculé comme une surface vue par le rayon
+const roofTile = new Map();
+function roofInfo(tx, ty) {
+  const k = ty * MW + tx; let r = roofTile.get(k); if (r !== undefined) return r;
+  if (tx < 0 || ty < 0 || tx >= MW || ty >= MH || map[ty][tx] !== BUILD || tx > CITY_END) { roofTile.set(k, null); return null; }
+  const hs = houseSeg(tx, ty), key = hs.key, same = (x, y) => x >= 0 && y >= 0 && x < MW && y < MH && map[y][x] === BUILD && houseSeg(x, y).key === key;
+  let L = 0, R = 0, U = 0, D = 0; while (L < 5 && same(tx - 1 - L, ty)) L++; while (R < 5 && same(tx + 1 + R, ty)) R++; while (U < 5 && same(tx, ty - 1 - U)) U++; while (D < 5 && same(tx, ty + 1 + D)) D++;
+  const st = hh(key, hs.iy, 320), ext = houseExtent(tx, ty), chim = hh(key, hs.iy, 317) < 0.5;
+  r = { body: houseHgt(tx, ty), L, R, U, D, style: st < 0.45 ? 0 : st < 0.8 ? 1 : st < 0.92 ? 2 : 3, v: houseV(tx, ty), chim: chim && tx === ext[0] + Math.floor((ext[1] - ext[0]) / 2), key };
+  roofTile.set(k, r); return r;
+}
+const ROOF_K = 0.95, ROOF_MAX = 22;
+function roofAt(wx, wy, out) {
+  const tx = Math.floor(wx / TS), ty = Math.floor(wy / TS), r = roofInfo(tx, ty); if (!r) return false;
+  const lx = wx - tx * TS, ly = wy - ty * TS, dW = lx + TS * r.L, dE = TS - lx + TS * r.R, dN = ly + TS * r.U, dS = TS - ly + TS * r.D;
+  let d, face;
+  if (r.style === 0) { d = Math.min(dW, dE, dN, dS); face = d === dN ? 0 : d === dS ? 1 : d === dW ? 2 : 3; }
+  else if (r.style === 1) { d = Math.min(dN, dS); face = d === dN ? 0 : 1; }
+  else if (r.style === 2) { d = Math.min(dW, dE); face = d === dW ? 2 : 3; }
+  else { d = 0; face = 1; }
+  const rise = r.style === 3 ? 0 : Math.min(ROOF_MAX, d * ROOF_K);
+  out.h = r.body + rise; out.d = d; out.face = face; out.v = r.v; out.brick = false;
+  if (r.chim && lx > 6 && lx < 9.5 && ly > 6 && ly < 9.5 && r.style !== 3) { out.h += 7; out.brick = true; }
+  return true;
 }
 const GARDEN = new Set(), FOUNT = new Set(), PLAZA = new Set(), ORCH = new Set();
 for (let y = 0; y < MH; y++) {
@@ -2459,6 +2480,7 @@ function drawPlayer(ox, oy) {
 }
 /* ---------- Vue à la première personne : on est le personnage (lancer de rayons sur la carte) ---------- */
 let camAng = Math.PI / 2, bobT = 0;
+const ROOFTMP = { h: 0, d: 0, face: 0, v: 0, brick: false };
 const FPSC = { fov: 1.12, WH: 26, maxD: 300, tex: new Map(), spr: new Map(), zb: null, img: null, buf: null, tmp: null, iw: 0, ih: 0 };
 const dirFromAng = a => { const c = Math.cos(a), s = Math.sin(a); return Math.abs(c) > Math.abs(s) ? (c > 0 ? "right" : "left") : (s > 0 ? "down" : "up"); };
 function arrowFor(dx, dy) {
@@ -2705,11 +2727,12 @@ function renderFPS(now) {
     let mx = Math.floor(ox / TS), my = Math.floor(oy / TS), sdx, sdy, step_x, step_y; const ddx = rdx === 0 ? 1e9 : Math.abs(1 / rdx), ddy = rdy === 0 ? 1e9 : Math.abs(1 / rdy);
     if (rdx < 0) { step_x = -1; sdx = (ox / TS - mx) * ddx; } else { step_x = 1; sdx = (mx + 1 - ox / TS) * ddx; }
     if (rdy < 0) { step_y = -1; sdy = (oy / TS - my) * ddy; } else { step_y = 1; sdy = (my + 1 - oy / TS) * ddy; }
-    let side = 0, guard = 0; const maxT = maxD / TS, hits = [];
+    let side = 0, guard = 0, lastCode = 0; const maxT = maxD / TS, hits = [];
     while (guard++ < 70) {
       if (sdx < sdy) { sdx += ddx; mx += step_x; side = 0; } else { sdy += ddy; my += step_y; side = 1; }
       const code = scn.opq(mx, my), dd = side ? sdy - ddy : sdx - ddx;
-      if (code) { hits.push({ perp: dd * TS, side, mx, my, code }); if (scn.hgt(code, mx, my) >= FPSC.WH || hits.length > 3) break; }
+      if (scn.out && code === BUILD && lastCode === BUILD) { lastCode = code; continue; } lastCode = code;
+      if (code) { hits.push({ perp: dd * TS, side, mx, my, code }); if ((!scn.out && scn.hgt(code, mx, my) >= FPSC.WH) || (scn.out && code !== BUILD && scn.hgt(code, mx, my) >= FPSC.WH) || hits.length > 3) break; }
       if (dd > maxT) break;
     }
     if (!hits.length) { zb[x] = 1e9; continue; }
@@ -2720,7 +2743,16 @@ function renderFPS(now) {
       const face = h.side ? (rdy < 0 ? 0 : 1) : 2, tex = scn.tex(h.mx, h.my, h.code, face);
       g0.drawImage(tex, Math.min(31, Math.floor(wallX * 32)), 0, 1, 32, x, top, 1, lineH);
       let rTop = top, rH = lineH;
-      if (scn.out && h.code === BUILD && h.side === 1) { const rp = roofProfile(h.mx, h.my, wallX); if (rp) { const eh = rp.ex * pd / perp; g0.fillStyle = rp.col; g0.fillRect(x, top - eh, 1, eh + 0.6); g0.fillStyle = rp.edge; g0.fillRect(x, top - eh, 1, Math.max(1, eh * 0.12)); rTop = top - eh; rH = lineH + eh; } }
+      if (scn.out && h.code === BUILD) {   // toit : on avance le long du rayon au-dessus du mur et on dessine la pente
+        let prev = top; const rp = ROOFTMP, tEnd = perp + 9 * TS, rb = amb * (1 - Math.min(1, perp / maxD)) * (wxr === 1 ? 0.88 : 1), sh = [0.74, 1.02, 0.84, 0.92];
+        for (let t = perp + 1.2; t < tEnd; t += 1.6) {
+          const px = ox + t * rdx, py = oy + t * rdy; if (!roofAt(px, py, rp)) break;
+          const yy = horizon + (eyeH - rp.h) * pd / t; if (yy >= prev) continue;
+          const base = rp.brick ? [112, 70, 58] : hexRgb(shade(roofs[rp.v], 0.75)), row = Math.floor(rp.d / 2.4), nz = 0.9 + hh(Math.floor((rp.face < 2 ? px : py) / 3), row, 9) * 0.16, band = row % 2 ? 0.88 : 1.0, fm = (rp.brick ? 1 : sh[rp.face] * band * nz) * Math.max(0.15, rb) + 0, fgc = Math.max(0, 1 - Math.max(0, Math.min(1, rb)));
+          g0.fillStyle = "rgb(" + Math.min(255, (base[0] * fm + (fogC[0] >> 2) * fgc) | 0) + "," + Math.min(255, (base[1] * fm + (fogC[1] >> 2) * fgc) | 0) + "," + Math.min(255, (base[2] * fm + (fogC[2] >> 2) * fgc) | 0) + ")";
+          g0.fillRect(x, yy, 1, prev - yy + 0.6); prev = yy;
+        }
+      }
       let bright = amb * (1 - Math.min(1, perp / maxD)) * (h.side ? 0.78 : 1); if (wxr === 1) bright *= 0.88;
       const hx = ox + perp * rdx, hy = oy + perp * rdy;
       for (const L of lights) { const dl = Math.hypot(hx - L[0], hy - L[1]); if (dl < 90) bright = Math.max(bright, 0.95 * (1 - dl / 90) + bright * (dl / 90)); }
@@ -3019,7 +3051,7 @@ function render(now) {
 /* ---------- Multijoueur : une équipe de 2 à 4 joueurs sur plusieurs appareils ----------
    L'hôte fait tourner le monde (infectés, temps, feux, pièges) et envoie l'état aux autres.
    Chaque joueur garde son propre sac, sa faim et ses vies. */
-const GAME_VER = "9";
+const GAME_VER = "10";
 const net = { role: "solo", kind: "", me: "", max: 1, code: "", link: null, peers: new Map(), lobby: [], looks: {}, t: 0, joinTimer: 0 };
 const others = new Map();
 let mobCounter = 1000, fireId = 0;
