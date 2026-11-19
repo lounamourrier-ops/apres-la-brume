@@ -581,7 +581,7 @@ const byOf = y => ((y - 3) % 9 + 9) % 9;
 function blockInfo(x, y) { return [Math.floor((x - 3) / 10), Math.floor((y - 3) / 9)]; }
 const blocker = (x, y) => hh(x, y, 2) < 0.07;
 // Village : les maisons ont des formes variées (L, T, U, deux maisons, petite maison avec jardin...)
-const MAPV = 4;
+const MAPV = 5;
 const SHAPES = [
   ["111111", "111111", "111111", "111111", "111111"],
   ["111000", "111000", "111111", "111111", "111111"],
@@ -646,7 +646,7 @@ function roofAt(wx, wy, out) {
   if (r.chim && lx > 6 && lx < 9.5 && ly > 6 && ly < 9.5 && r.style !== 3) { out.h += 7; out.brick = true; }
   return true;
 }
-const GARDEN = new Set(), FOUNT = new Set(), PLAZA = new Set(), ORCH = new Set();
+const FRONT = new Set(), GARDEN = new Set(), FOUNT = new Set(), PLAZA = new Set(), ORCH = new Set();
 for (let y = 0; y < MH; y++) {
   const row = [];
   for (let x = 0; x < MW; x++) {
@@ -677,7 +677,8 @@ for (let y = 0; y < MH; y++) {
       } else if (inner) {
         if (shapeOf(ix, iy)[by - 1][bx - 1] === "1") t = BUILD;
         else { t = hh(x, y, 4) < 0.2 ? TREE : GRASS; GARDEN.add(y * MW + x); }
-      } else t = WALK;
+      } else if ((by === 6 || by === 0) && bx >= 1 && bx <= 6 && bx !== 3 && !near) { t = GRASS; FRONT.add(y * MW + x); }
+      else t = WALK;
       if (t === WALK && !near && hh(x, y, 11) < 0.05) t = DEBRIS;
     }
     row.push(t);
@@ -2564,6 +2565,7 @@ function kidCanvas(dir, fi) { drawKid(mkc(1, 1).getContext("2d"), dir, fi, 0, 5)
 
 // --- le rendu
 const FCOL = [0, 0, 0], fc = (a, b, c) => { FCOL[0] = a; FCOL[1] = b; FCOL[2] = c; return FCOL; };
+const kk0 = (x, y) => y * MW + x;
 function bloodAt(tx, ty, lx, ly) {
   if (hh(tx, ty, 350) > 0.11) return 0;
   const cx = 3 + hh(tx, ty, 351) * 10, cy = 3 + hh(tx, ty, 352) * 10, r = 2 + hh(tx, ty, 353) * 3.5, d = Math.hypot(lx - cx, ly - cy);
@@ -2596,6 +2598,11 @@ function fpsFloorColor0(tt, tx, ty, wx, wy, ix, iy, rain) {
     return gr ? fc(64, 68, 62) : fc(88 + n, 92 + n, 86 + n);
   }
   if (GARDEN.has(ty * MW + tx) && ((ix + iy) & 3) === 0 && n > 8) return fc(58, 40, 26);
+  if (FRONT.has(ty * MW + tx)) {
+    const lx = wx - tx * TS, stripe = (Math.floor(wx / 8) + tx) & 1, edge = (lx < 1 || lx > 15) ? 0 : 1;
+    if (hh(tx, ty, 370) < 0.25 && n > 9) return fc(70 + (n >> 1), 64, 40);
+    return fc(36 + stripe * 7 + (n >> 2), 82 + stripe * 9 + (n >> 1), 44 + stripe * 3);
+  }
   const pa = Math.sin(wx * 0.045 + Math.sin(wy * 0.03) * 2) + Math.sin(wy * 0.06 - wx * 0.02), tuft = ((ix * 7 + iy * 13) & 7) === 0 && n > 9, fl = ((ix * 31 + iy * 17) % 211) === 0;
   if (fl) return n > 8 ? fc(190, 170, 70) : fc(170, 150, 180);
   if (pa > 1.35) return fc(70 + (n >> 1), 62 + (n >> 1), 40);
@@ -2618,6 +2625,9 @@ function outdoorScene() {
       for (let ty = Math.max(0, cy0 - rr); ty <= Math.min(MH - 1, cy0 + rr); ty++) for (let tx = Math.max(0, cx0 - rr); tx <= Math.min(MW - 1, cx0 + rr); tx++) {
         const t = map[ty][tx];
         if (t === WALK && tx <= CITY_END && ty > 0 && map[ty - 1][tx] === BUILD && !doors.get((ty - 1) * MW + tx) && houseBarr(tx, ty - 1) && hh(tx, ty, 332) < 0.6) { add(tx * TS + 8, ty * TS + 6, fpsSprite("barr" + (tx % 2), 16, 12, g2 => { const R2 = (c, x, y, w, h2) => { g2.fillStyle = c; g2.fillRect(x, y, w, h2); }; R2("#4a3a24", 1, 8, 14, 3); R2("#6b4f30", 0, 5, 16, 3); R2("#8a6a40", 0, 5, 16, 1); R2("#5a4228", 2, 2, 12, 3); R2("#7a5a36", 2, 2, 12, 1); R2("#c8c0a8", 4, 6, 1, 1); R2("#c8c0a8", 11, 3, 1, 1); R2("#6e1214", 6, 6, 3, 1); R2("#6e1214", 7, 7, 1, 2); }), 16, 10, 0); continue; }
+        if (FRONT.has(kk0(tx, ty)) && map[ty - 1] && map[ty - 1][tx] === BUILD && hh(tx, ty, 380) < 0.45) { add(tx * TS + 8, ty * TS + 3, fpsSprite("bush" + Math.floor(hh(tx, ty, 381) * 3), 16, 11, g2 => { const R2 = (c, x, y, w, h2) => { g2.fillStyle = c; g2.fillRect(x, y, w, h2); }; R2("#1f4a2a", 1, 4, 14, 7); R2("#2b6a39", 2, 2, 12, 6); R2("#43894a", 4, 1, 6, 3); for (let i = 0; i < 10; i++) R2(i % 2 ? "#1a3d24" : "#5aa05a", 2 + (i * 5) % 12, 2 + (i * 3) % 7, 2, 1); }), 15, 10, 0); }
+        if (FRONT.has(kk0(tx, ty)) && map[ty + 1] && map[ty + 1][tx] === ROAD && hh(tx, ty, 382) < 0.12) { add(tx * TS + 8, ty * TS + 12, fpsSprite("mbox", 8, 14, g2 => { g2.fillStyle = "#4a3a24"; g2.fillRect(3, 6, 2, 8); g2.fillStyle = "#3a5a7a"; g2.fillRect(0, 2, 8, 5); g2.fillStyle = "#6a8aaa"; g2.fillRect(0, 2, 8, 1); g2.fillStyle = "#c0392b"; g2.fillRect(7, 0, 1, 4); }), 7, 11, 0); }
+        if (FRONT.has(kk0(tx, ty)) && map[ty + 1] && map[ty + 1][tx] !== BUILD && hh(tx, ty, 330) < 0.5) { add(tx * TS + 8, ty * TS + 13, fpsSprite("fence" + (hh(tx, ty, 331) < 0.3 ? 1 : 0), 16, 8, g2 => { g2.fillStyle = "#b8b4a2"; g2.fillRect(0, 2, 16, 1); g2.fillRect(0, 5, 16, 1); for (let i = 1; i < 16; i += 3) { g2.fillStyle = "#cdc9b6"; g2.fillRect(i, 1, 2, 7); g2.fillStyle = "#8a8674"; g2.fillRect(i + 1, 1, 1, 7); } }), 16, 7, 0); }
         if (t === WALK && tx <= CITY_END && ty > 0 && map[ty - 1][tx] === BUILD && !doors.get((ty - 1) * MW + tx) && hh(tx, ty, 330) < 0.6) { add(tx * TS + 8, ty * TS + 3, fpsSprite("fence" + (hh(tx, ty, 331) < 0.3 ? 1 : 0), 16, 8, g2 => { g2.fillStyle = "#b8b4a2"; g2.fillRect(0, 2, 16, 1); g2.fillRect(0, 5, 16, 1); for (let i = 1; i < 16; i += 3) { g2.fillStyle = "#cdc9b6"; g2.fillRect(i, 1, 2, 7); g2.fillStyle = "#8a8674"; g2.fillRect(i + 1, 1, 1, 7); } }), 16, 7, 0); continue; }
         if (t !== TREE && t !== CAR && t !== BARRIER && t !== DEBRIS) continue;
         const cxw = tx * TS + 8, cyw = ty * TS + 8, kk = ty * MW + tx;
@@ -3051,7 +3061,7 @@ function render(now) {
 /* ---------- Multijoueur : une équipe de 2 à 4 joueurs sur plusieurs appareils ----------
    L'hôte fait tourner le monde (infectés, temps, feux, pièges) et envoie l'état aux autres.
    Chaque joueur garde son propre sac, sa faim et ses vies. */
-const GAME_VER = "10";
+const GAME_VER = "11";
 const net = { role: "solo", kind: "", me: "", max: 1, code: "", link: null, peers: new Map(), lobby: [], looks: {}, t: 0, joinTimer: 0 };
 const others = new Map();
 let mobCounter = 1000, fireId = 0;
