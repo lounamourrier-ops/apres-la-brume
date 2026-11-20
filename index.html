@@ -135,11 +135,25 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 #msg { position: absolute; top: 92px; left: 0; right: 0; text-align: center; font-family: var(--display); font-size: 1.2rem; letter-spacing: .08em; text-transform: uppercase; color: var(--fg); text-shadow: 0 2px 6px #000; pointer-events: none; }
 .note { color: var(--muted); font-family: var(--display); font-size: .9rem; letter-spacing: .08em; text-transform: uppercase; }
 @media (max-width: 520px) { #msg { font-size: 1rem; } }
+#rotTip { display: none; text-align: center; color: var(--accent); }
+@media (orientation: portrait) and (max-width: 700px) and (pointer: coarse) { #rotTip { display: block; } }
 @media (max-height: 520px) {
   body { padding-block: 8px; }
   h1, #game > .note { display: none; }
   #game { width: min(100%, calc((100vh - 18px) * 1.3333)); width: min(100%, calc((100dvh - 18px) * 1.3333)); }
   #msg { font-size: 1rem; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  main { max-width: none; padding-inline: max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-right)); }
+  #game { width: 100%; min-width: 0; max-width: none; }
+  #game.fps #msg, #msg { top: 84px; font-size: .9rem; }
+  #tuto { display: grid; grid-template-columns: 46% 1fr; grid-template-rows: auto auto 1fr auto auto; column-gap: 18px; row-gap: 6px; align-content: center; overflow: auto; }
+  #tuto:not([hidden]) { display: grid; }
+  #tutoCv { grid-column: 1; grid-row: 1 / span 5; max-height: none; align-self: center; }
+  #tuto > :not(canvas) { grid-column: 2; }
+  #tuto .who { font-size: 1.05rem; }
+  #tuto p { font-size: .9rem; line-height: 1.35; }
+  #rotTip { display: none !important; }
 }
 </style>
 
@@ -185,6 +199,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
   </section>
 
   <section id="game" hidden>
+    <p class="note" id="rotTip">Astuce : tourne ton téléphone en horizontal pour mieux jouer.</p>
     <div class="stage" id="stage">
       <canvas id="screen" width="224" height="168"></canvas>
       <canvas id="hudc"></canvas>
@@ -1352,10 +1367,11 @@ const cv = $("screen"), g = cv.getContext("2d");
 const ZOOMS = [["Petit", 320], ["Normal", 256], ["Grand", 224], ["Très grand", 192]];
 let zoomI = innerWidth < 600 ? 3 : 2; // téléphone : très grand, grand écran : grand
 try { const z = parseInt(localStorage.getItem("brume-zoom"), 10); if (z >= 0 && z < ZOOMS.length) zoomI = z; } catch (e) {}
+try { document.addEventListener("click", function once() { document.removeEventListener("click", once); if (screen.orientation && screen.orientation.lock && innerWidth < 900) screen.orientation.lock("landscape").catch(() => {}); }); } catch (e) {}
 function setView() {
   // sur un téléphone tenu droit, la zone de jeu devient plus haute pour remplir l'écran
   VW = ZOOMS[zoomI][1];
-  const ratio = Math.max(0.75, Math.min(1.6, (innerHeight - 140) / Math.max(200, innerWidth - 32)));
+  const land = innerWidth > innerHeight && innerHeight < 520, ratio = land ? Math.max(0.38, Math.min(1, (innerHeight - 20) / Math.max(200, innerWidth - 24))) : Math.max(0.75, Math.min(1.6, (innerHeight - 140) / Math.max(200, innerWidth - 32)));
   VH = Math.round(VW * ratio / 4) * 4;
   if (cv.width !== VW) cv.width = VW; if (cv.height !== VH) cv.height = VH; cv.style.aspectRatio = VW + " / " + VH; if ($("bZoom")) $("bZoom").textContent = "Zoom : " + ZOOMS[zoomI][0]; }
 setView(); window.addEventListener("resize", setView); window.addEventListener("orientationchange", () => setTimeout(setView, 200));
